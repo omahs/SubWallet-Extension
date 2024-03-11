@@ -113,4 +113,4 @@ export interface AstarDappV3PositionInfo extends NativeYieldPositionInfo {
 /**
  * Info of yield pool
  * */
-export type YieldPositionInfo = NativeYieldPositionInfo | NominationYieldPositionInfo | LiquidYieldPositionInfo | LendingYieldPositionInfo | AstarDappV3PositionInfo;
+export type YieldPositionInfo = AstarDappV3PositionInfo | NativeYieldPositionInfo | NominationYieldPositionInfo | LiquidYieldPositionInfo | LendingYieldPositionInfo;

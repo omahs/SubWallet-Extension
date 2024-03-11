@@ -266,7 +266,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
 
     const totalStake = unstakeBalance.add(bnTotalActiveStake);
 
-    // todo: UI need to handle position by lock, not activeStake
+    // todo: UI need to handle position by lock, not totalStake/activeStake
     return {
       status: stakingStatus,
       balanceToken: this.nativeToken.slug,
@@ -302,10 +302,8 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
           const bnLocked = new BigN(ledger.locked);
 
           if (ledger && bnLocked.gt(BigN(0))) {
-            // console.log('zo');
             const nominatorMetadata = await this.parseNominatorMetadata(chainInfo, owner, substrateApi, ledger, bnLocked);
 
-            // console.log('nominatorMetadata', nominatorMetadata)
             resultCallback({
               ...defaultInfo,
               ...nominatorMetadata,
@@ -468,19 +466,43 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
     ];
   }
 
-  async createJoinExtrinsic (data: SubmitJoinNativeStaking, positionInfo?: YieldPositionInfo, bondDest = 'Staked'): Promise<[TransactionData, YieldTokenBaseInfo]> {
+  async createJoinExtrinsic (data: SubmitJoinNativeStaking, positionInfo?: AstarDappV3PositionInfo, bondDest = 'Staked'): Promise<[TransactionData, YieldTokenBaseInfo]> {
+    // todo: handle join in the last era.
     const { amount, selectedValidators: targetValidators } = data;
     const chainApi = await this.substrateApi.isReady;
-    const binaryAmount = new BN(amount);
+    const bnAmount = new BN(amount);
+
+    // Get the current active locked amount = totalLock - totalUnlock - totalStake
+    let bnLock = BN_ZERO;
+
+    if (positionInfo) {
+      const bnTotalLock = new BN(positionInfo.totalLock) || BN_ZERO;
+      const bnTotalStake = new BN(positionInfo.totalStake) || BN_ZERO;
+
+      bnLock = bnTotalLock.sub(bnTotalStake);
+    }
+
     const dappInfo = targetValidators[0];
-
     const dappParam = isEthereumAddress(dappInfo.address) ? { Evm: dappInfo.address } : { Wasm: dappInfo.address };
-    const extrinsic = chainApi.api.tx.dappsStaking.bondAndStake(dappParam, binaryAmount);
-    const tokenSlug = this.nativeToken.slug;
-    // const feeInfo = await extrinsic.paymentInfo(address);
-    // const fee = feeInfo.toPrimitive() as unknown as RuntimeDispatchInfo;
 
-    // Not use the fee to validate and to display on UI
+    let extrinsic: SubmittableExtrinsic;
+
+    if (bnLock.gt(BN_ZERO) && bnLock.gte(bnAmount)) {
+      extrinsic = chainApi.api.tx.dappStaking.stake(dappParam, bnAmount);
+    } else if (bnLock.gt(BN_ZERO) && bnLock.lt(bnAmount)) {
+      extrinsic = chainApi.api.tx.utility.batch([
+        chainApi.api.tx.dappStaking.lock(bnAmount.sub(bnLock)),
+        chainApi.api.tx.dappStaking.stake(dappParam, bnAmount)
+      ]);
+    } else {
+      extrinsic = chainApi.api.tx.utility.batch([
+        chainApi.api.tx.dappStaking.lock(bnAmount),
+        chainApi.api.tx.dappStaking.stake(dappParam, bnAmount)
+      ]);
+    }
+
+    const tokenSlug = this.nativeToken.slug;
+
     return [extrinsic, { slug: tokenSlug, amount: '0' }];
   }
 
