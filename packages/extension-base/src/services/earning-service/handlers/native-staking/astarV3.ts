@@ -381,7 +381,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
 
     const allDappsExtMap: Record<string, PalletDappsStakingDappInfo> = {};
 
-    allDappsExt.map((dappInfo) => {
+    allDappsExt.forEach((dappInfo) => {
       allDappsExtMap[dappInfo.address] = dappInfo;
     });
 
@@ -394,7 +394,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
       contractInfoMap[dappId] = contract[1].toHuman() as unknown as PalletDappStakingV3ContractStakeAmount;
     }
 
-    await Promise.all(allDapps.map(async (dappInfo) => {
+    allDapps.forEach((dappInfo) => {
       const dappAddress = dappInfo.contractAddress;
       const dappId = dappInfo.dappId;
       const stakersCount = dappInfo.stakersCount;
@@ -444,7 +444,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
         chain: this.chain,
         isCrowded: false // stakerCount >= maxStakerPerContract
       });
-    }));
+    });
 
     return allDappsInfo;
   }
@@ -512,7 +512,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
 
   async handleYieldUnstake (amount: string, address: string, selectedTarget?: string): Promise<[ExtrinsicType, TransactionData]> {
     const chainApi = await this.substrateApi.isReady;
-    const binaryAmount = new BN(amount);
+    const bnAmount = new BN(amount);
 
     if (!selectedTarget) {
       return Promise.reject(new TransactionError(BasicTxErrorType.INVALID_PARAMS));
@@ -520,15 +520,34 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
 
     const dappParam = isEthereumAddress(selectedTarget) ? { Evm: selectedTarget } : { Wasm: selectedTarget };
 
-    const extrinsic = chainApi.api.tx.dappsStaking.unbondAndUnstake(dappParam, binaryAmount);
+    const extrinsic = chainApi.api.tx.dappStaking.unstake(dappParam, bnAmount);
 
     return [ExtrinsicType.STAKING_LEAVE_POOL, extrinsic];
   }
 
   /* Leave pool action */
 
+  /* Handle unlock action */
+  // todo: add button to unlock
+  async handleUnlock (amount: string) {
+    const chainApi = await this.substrateApi.isReady;
+    const bnAmount = new BN(amount);
+
+    return chainApi.api.tx.dappStaking.unlock(bnAmount);
+  }
+
+  // todo: add buttion to cancel unlock
+  async handleCancelUnlock () {
+    const chainApi = await this.substrateApi.isReady;
+
+    return chainApi.api.tx.dappStaking.relockUnlocking();
+  }
+
+  /* Handle unlock action */
+
   /* Other action */
 
+  // only has cancel unlock
   override async handleYieldCancelUnstake (params: StakeCancelWithdrawalParams): Promise<TransactionData> {
     return Promise.reject(new TransactionError(BasicTxErrorType.UNSUPPORTED));
   }
@@ -589,5 +608,11 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
     return apiPromise.api.tx.utility.batch(transactions);
   }
 
+  // todo: add buttion to cleanupExpiredStake
+  async handleCleanupExpiredStake (): Promise<TransactionData> {
+    const chainApi = await this.substrateApi.isReady;
+
+    return chainApi.api.tx.dappStaking.cleanupExpiredEnntries();
+  }
   /* Other actions */
 }
