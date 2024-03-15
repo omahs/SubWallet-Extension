@@ -56,7 +56,7 @@ export interface PalletDappStakingV3UnlockingChunk {
   unlockBlock: string
 }
 
-interface PalletDappStakingV3StakeInfo {
+export interface PalletDappStakingV3StakeInfo {
   voting: string,
   buildAndEarn: string,
   era: number,
@@ -71,6 +71,12 @@ export interface PalletDappStakingV3ProtocolState {
     subperiod: DappStakingV3Subperiod,
     nextSubperiodStartEra: string,
   }
+}
+
+export interface PalletDappStakingV3PeriodEndInfo {
+  bonusRewardPool: string,
+  totalVpStake: string,
+  finalEra: string
 }
 
 // todo: move this declare to suitable location
