@@ -369,9 +369,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
 
   async getPoolTargets (): Promise<ValidatorInfo[]> {
     const substrateApi = await this.substrateApi.isReady;
-    // todo: check if there any limit on this
-    // const rawMaxStakerPerContract = (chainApi.api.consts.dappsStaking.maxNumberOfStakersPerContract).toHuman() as string;
-    // const maxStakerPerContract = parseRawNumber(rawMaxStakerPerContract);
+    // todo: check if there any limit on max staker on a dapp this
 
     const allDappsInfo: ValidatorInfo[] = [];
 
@@ -415,8 +413,8 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
     const contractInfoMap: Record<string, PalletDappStakingV3ContractStakeAmount> = {};
 
     for (const contract of _contractInfo) {
-      // @ts-ignore
-      const dappId = parseInt(contract[0].toHuman());
+      const _dappId = contract[0].toHuman() as string;
+      const dappId = parseInt(_dappId);
 
       contractInfoMap[dappId] = contract[1].toHuman() as unknown as PalletDappStakingV3ContractStakeAmount;
     }
@@ -439,17 +437,25 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
       let totalStake = '0';
 
       if (contractInfo) {
-        const eraStaked = contractInfo.staked?.era.toString();
-        const eraStakedFuture = contractInfo.stakedFuture?.era.toString();
+        const staked = contractInfo.staked;
+        const stakedFuture = contractInfo.stakedFuture;
+        const isHasStaked = isHasStakedCheck(staked);
+        const isHasStakedFuture = isHasStakedFutureCheck(stakedFuture);
 
-        if (eraStaked === era) {
-          const bnVoting = new BigN(contractInfo.staked?.voting);
-          const bnBuildAndEarn = new BigN(contractInfo.staked?.buildAndEarn);
+        const eraStaked = staked?.era.toString();
+        const eraStakedFuture = stakedFuture?.era.toString();
 
-          totalStake = bnVoting.plus(bnBuildAndEarn).toString();
-        } else if (eraStakedFuture === era) {
+        // todo: check this
+        // todo: check if need to store voting and B&E amount seperately
+
+        if (isHasStakedFuture && eraStakedFuture <= era) {
           const bnVoting = new BigN(contractInfo.stakedFuture?.voting);
           const bnBuildAndEarn = new BigN(contractInfo.stakedFuture?.buildAndEarn);
+
+          totalStake = bnVoting.plus(bnBuildAndEarn).toString();
+        } else if (!isHasStakedFuture && isHasStaked && eraStaked <= era) {
+          const bnVoting = new BigN(contractInfo.staked?.voting);
+          const bnBuildAndEarn = new BigN(contractInfo.staked?.buildAndEarn);
 
           totalStake = bnVoting.plus(bnBuildAndEarn).toString();
         }
@@ -610,7 +616,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
     const earnRewardPeriod = staked.period || stakedFuture.period;
 
     const isHasStaked = isHasStakedCheck(staked);
-    const isHasStakedFuture = isHasStakedFutureCheck(staked);
+    const isHasStakedFuture = isHasStakedFutureCheck(stakedFuture);
 
     if (isHasStaked || isHasStakedFuture) {
       let firstEra = 0;
