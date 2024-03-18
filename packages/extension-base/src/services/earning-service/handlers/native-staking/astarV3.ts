@@ -197,7 +197,8 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
       }).catch(console.error);
     });
 
-    const [_allDapps, _stakerInfo, _currentBlock] = await Promise.all([
+    const [_activeProtocolState, _allDapps, _stakerInfo, _currentBlock] = await Promise.all([
+      substrateApi.api.query.dappStaking.activeProtocolState(),
       allDappsReq,
       substrateApi.api.query.dappStaking.stakerInfo.entries(address),
       substrateApi.api.query.system.number()
@@ -206,7 +207,10 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
     const currentBlock = _currentBlock.toPrimitive() as string;
     const minDelegatorStake = substrateApi.api.consts.dappStaking.minimumStakeAmount.toString();
     const allDapps = _allDapps as PalletDappStakingV3DappInfo[];
+    const activeProtocolState = _activeProtocolState.toPrimitive() as unknown as PalletDappStakingV3ProtocolState;
+    const currentPeriod = activeProtocolState.periodInfo.number;
 
+    let bnTotalStake = BN_ZERO;
     let bnTotalActiveStake = BN_ZERO;
 
     if (_stakerInfo.length > 0) {
@@ -219,20 +223,27 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
       for (const item of _stakerInfo) {
         const data = item[0].toHuman() as unknown as any[];
         const stakedDapp = data[1] as Record<string, string>;
+        const _dappAddress = stakedDapp.Evm ? stakedDapp.Evm.toLowerCase() : stakedDapp.Wasm;
+        const dappAddress = convertAddress(_dappAddress);
+
         const stakedInfo = item[1].toPrimitive() as unknown as PalletDappStakingV3SingularStakingInfo;
         const stakeData = stakedInfo.staked;
         const bnBuildAndEarn = new BN(stakeData.buildAndEarn);
         const bnVoting = new BN(stakeData.voting);
+        const period = stakeData.period;
 
-        const _dappAddress = stakedDapp.Evm ? stakedDapp.Evm.toLowerCase() : stakedDapp.Wasm;
-        const dappAddress = convertAddress(_dappAddress);
         const bnCurrentStake = bnBuildAndEarn.add(bnVoting) || new BN(0);
 
         if (bnCurrentStake.gt(BN_ZERO)) {
-          // todo: check period end => no EARNING_REWARD
-          const dappEarningStatus = bnCurrentStake.gt(BN_ZERO) && bnCurrentStake.gte(new BN(minDelegatorStake)) ? EarningStatus.EARNING_REWARD : EarningStatus.NOT_EARNING;
+          const dappEarningStatus = bnCurrentStake.gt(BN_ZERO) && bnCurrentStake.gte(new BN(minDelegatorStake)) && currentPeriod === period ? EarningStatus.EARNING_REWARD : EarningStatus.NOT_EARNING;
 
-          bnTotalActiveStake = bnTotalActiveStake.add(bnCurrentStake);
+          bnTotalStake = bnTotalStake.add(bnCurrentStake);
+
+          // todo: check Dapp unregistered?
+          if (currentPeriod === period) {
+            bnTotalActiveStake = bnTotalActiveStake.add(bnCurrentStake);
+          }
+
           const dappInfo = dAppInfoMap[dappAddress];
 
           nominationList.push({
@@ -286,24 +297,21 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
     }
 
     const stakingStatus = getEarningStatusByNominations(bnTotalActiveStake, nominationList);
-    const activeStake = bnTotalActiveStake.toString();
-    const unstakeBalance = unstakingList.reduce((old, currentValue) => {
+    const unlockingBalance = unstakingList.reduce((old, currentValue) => {
       return old.add(new BN(currentValue.claimable));
     }, BN_ZERO);
-
-    const totalStake = unstakeBalance.add(bnTotalActiveStake);
 
     // todo: UI need to handle position by lock, not totalStake/activeStake
     return {
       status: stakingStatus,
       balanceToken: this.nativeToken.slug,
       totalLock: bnLocked.toString(),
-      totalStake: totalStake.toString(),
-      activeStake: activeStake,
-      unstakeBalance: unstakeBalance.toString(),
-      isBondedBefore: totalStake.gt(BN_ZERO),
+      totalStake: bnTotalActiveStake.toString(),
+      activeStake: bnTotalActiveStake.toString(),
+      unstakeBalance: unlockingBalance.toString(), // actually unlocking balance
+      isBondedBefore: bnTotalActiveStake.gt(BN_ZERO),
       nominations: nominationList,
-      unstakings: unstakingList
+      unstakings: unstakingList // actually unlocking list
     };
   }
 
