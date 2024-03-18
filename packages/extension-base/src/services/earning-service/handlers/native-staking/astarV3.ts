@@ -514,13 +514,14 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
     const bnAmount = new BN(amount);
 
     // Get the current active locked amount = totalLock - totalUnlock - totalStake
-    let bnLock = BN_ZERO;
+    let bnActiveLock = BN_ZERO;
 
     if (positionInfo) {
       const bnTotalLock = new BN(positionInfo.totalLock) || BN_ZERO;
       const bnTotalStake = new BN(positionInfo.totalStake) || BN_ZERO;
+      const bnUnlocking = new BN(positionInfo.unstakeBalance) || BN_ZERO;
 
-      bnLock = bnTotalLock.sub(bnTotalStake);
+      bnActiveLock = bnTotalLock.sub(bnTotalStake).sub(bnUnlocking);
     }
 
     const dappInfo = targetValidators[0];
@@ -528,11 +529,11 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
 
     let extrinsic: SubmittableExtrinsic;
 
-    if (bnLock.gt(BN_ZERO) && bnLock.gte(bnAmount)) {
+    if (bnActiveLock.gt(BN_ZERO) && bnActiveLock.gte(bnAmount)) {
       extrinsic = chainApi.api.tx.dappStaking.stake(dappParam, bnAmount);
-    } else if (bnLock.gt(BN_ZERO) && bnLock.lt(bnAmount)) {
+    } else if (bnActiveLock.gt(BN_ZERO) && bnActiveLock.lt(bnAmount)) {
       extrinsic = chainApi.api.tx.utility.batch([
-        chainApi.api.tx.dappStaking.lock(bnAmount.sub(bnLock)),
+        chainApi.api.tx.dappStaking.lock(bnAmount.sub(bnActiveLock)),
         chainApi.api.tx.dappStaking.stake(dappParam, bnAmount)
       ]);
     } else {
