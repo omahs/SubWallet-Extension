@@ -1,7 +1,48 @@
 # CHANGELOG
 
+## 1.1.44
+Build date: Mar 16, 2024.
+
+Features & Update:
+- Update Subscan service (#2731)
+- Add subject email in case select contact support feature (#2729)
+- Update email support (#2759)
+- Update Chain-list (#2694)
+  - Update chain data and Chain assets
+  - Support CreditCoin EVM testnet
+  - Support Astar zkEVM
+  - Update block explorer for Continuum
+  - Support transferring Unique NFTs
+  - Discontinued support transfer local token for Crab Parachain and Pangolin
+
+Bugs fixed:
+- Fixed bug error page on NFT details screen (#2748)
+
+## 1.1.43
+Build date: Mar 11, 2024.
+
+Bugs fixed:
+- Fixed bug not updating blocked XCM channels
+
+## 1.1.42
+Build date: Mar 08, 2024.
+
+Features & Update:
+- Update transaction result screen (#2659)
+- Update Manta staking APY formula (#2513)
+- Update chain-list (#2698)
+  - Inactive Kapex
+  - Add support for more tokens on HydraDX
+  - Add support for DENTNet
+  - Add support for Phyken network (testnet)
+  - Add support for Tangle Network
+  - Support transfer for NUUM
+
+Bugs fixed:
+- Disable auto enable wallet while request "eth_account"
+
 ## 1.1.41
-Build date: Feb 24, 2024.
+Build date: Mar 02, 2024.
 
 Features & Update:
 - Restructure Settings screen (#2647)
@@ -24,7 +65,7 @@ Bugs fixed:
 - Re-check case update data after performing actions (unstake, cancel unstake, withdraw) (#2682)
 
 ## 1.1.40
-Build date: Feb 24, 2024.
+Build date: Feb 29, 2024.
 
 Features & Update:
 - Update pool default for VARA (#2678)
