@@ -566,6 +566,28 @@ export default class TransactionService {
         break;
       }
 
+      // todo: update this
+      // case ExtrinsicType.STAKING_UNLOCK: {
+      //   const data = parseTransactionData<ExtrinsicType.STAKING_CANCEL_UNSTAKE>(transaction.data);
+      //
+      //   historyItem.amount = { ...baseNativeAmount, value: data.selectedUnstaking.claimable || '0' };
+      //   break;
+      // }
+      //
+      // case ExtrinsicType.STAKING_CANCEL_UNLOCK: {
+      //   const data = parseTransactionData<ExtrinsicType.STAKING_CANCEL_UNLOCK>(transaction.data);
+      //
+      //   historyItem.amount = { ...baseNativeAmount, value: data.selectedUnstaking.claimable || '0' };
+      //   break;
+      // }
+      //
+      // case ExtrinsicType.STAKING_WITHDRAW_UNLOCK: {
+      //   const data = parseTransactionData<ExtrinsicType.STAKING_CANCEL_UNSTAKE>(transaction.data);
+      //
+      //   historyItem.amount = { ...baseNativeAmount, value: data.selectedUnstaking.claimable || '0' };
+      //   break;
+      // }
+
       case ExtrinsicType.EVM_EXECUTE: {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const data = parseTransactionData<ExtrinsicType.EVM_EXECUTE>(transaction.data);

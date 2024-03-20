@@ -33,8 +33,10 @@ const isHasStakedFutureCheck = (stakedInfo: PalletDappStakingV3StakeInfo): boole
 
 const getPeriodEndInfo = (period: number, _periodEnd: any[]): PalletDappStakingV3PeriodEndInfo => {
   for (const periodEndInfo of _periodEnd) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
     const _periodNumber = periodEndInfo[0].toHuman() as number[];
     const periodNumber = _periodNumber[0];
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
     const periodInfo = periodEndInfo[1].toHuman() as PalletDappStakingV3PeriodEndInfo;
 
     if (period === periodNumber) {
@@ -553,6 +555,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
   /* Leave pool action */
 
   async handleYieldUnstake (amount: string, address: string, selectedTarget?: string): Promise<[ExtrinsicType, TransactionData]> {
+    // todo: handle case unstake make stake amount < voting.
     const chainApi = await this.substrateApi.isReady;
     const bnAmount = new BN(amount);
 
@@ -569,7 +572,8 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
 
   /* Leave pool action */
 
-  /* Handle unlock action */
+  /* Other action */
+
   // todo: add button to unlock
   async handleUnlock (amount: string) {
     const chainApi = await this.substrateApi.isReady;
@@ -578,26 +582,25 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
     return chainApi.api.tx.dappStaking.unlock(bnAmount);
   }
 
-  // todo: add buttion to cancel unlock
+  // todo: add button to cancel unlock
   async handleCancelUnlock () {
     const chainApi = await this.substrateApi.isReady;
 
     return chainApi.api.tx.dappStaking.relockUnlocking();
   }
 
-  /* Handle unlock action */
+  async handleWithdrawUnlock (): Promise<TransactionData> {
+    const chainApi = await this.substrateApi.isReady;
 
-  /* Other action */
+    return chainApi.api.tx.dappStaking.withdrawUnbonded();
+  }
 
-  // only has cancel unlock
   override async handleYieldCancelUnstake (params: StakeCancelWithdrawalParams): Promise<TransactionData> {
     return Promise.reject(new TransactionError(BasicTxErrorType.UNSUPPORTED));
   }
 
   async handleYieldWithdraw (address: string, unstakingInfo: UnstakingInfo): Promise<TransactionData> {
-    const chainApi = await this.substrateApi.isReady;
-
-    return chainApi.api.tx.dappsStaking.withdrawUnbonded();
+    return Promise.reject(new TransactionError(BasicTxErrorType.UNSUPPORTED));
   }
 
   override async handleYieldClaimReward (address: string, bondReward?: boolean) {
