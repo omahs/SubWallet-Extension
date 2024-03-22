@@ -79,8 +79,7 @@ export interface PalletDappStakingV3PeriodEndInfo {
   finalEra: string
 }
 
-// todo: move this declare to suitable location
-export declare enum DappStakingV3Subperiod {
+export enum DappStakingV3Subperiod {
   BUILD_AND_EARN = 'BuildAndEarn',
   VOTING = 'Voting'
 }

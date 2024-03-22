@@ -8,7 +8,7 @@ import { getEarningStatusByNominations } from '@subwallet/extension-base/koni/ap
 import { _EXPECTED_BLOCK_TIME, _STAKING_ERA_LENGTH_MAP } from '@subwallet/extension-base/services/chain-service/constants';
 import { _SubstrateApi } from '@subwallet/extension-base/services/chain-service/types';
 import BaseParaNativeStakingPoolHandler from '@subwallet/extension-base/services/earning-service/handlers/native-staking/base-para';
-import { AstarDappV3PositionInfo, BaseYieldPositionInfo, EarningStatus, NativeYieldPoolInfo, PalletDappsStakingDappInfo, PalletDappStakingV3AccountLedger, PalletDappStakingV3ContractStakeAmount, PalletDappStakingV3DappInfo, PalletDappStakingV3PeriodEndInfo, PalletDappStakingV3ProtocolState, PalletDappStakingV3SingularStakingInfo, PalletDappStakingV3StakeInfo, StakeCancelWithdrawalParams, SubmitJoinNativeStaking, TransactionData, UnstakingStatus, ValidatorInfo, YieldPoolInfo, YieldPoolMethodInfo, YieldPositionInfo, YieldStepBaseInfo, YieldStepType, YieldTokenBaseInfo } from '@subwallet/extension-base/types';
+import { AstarDappV3PoolInfo, AstarDappV3PositionInfo, BaseYieldPositionInfo, DappStakingV3Subperiod, EarningStatus, PalletDappsStakingDappInfo, PalletDappStakingV3AccountLedger, PalletDappStakingV3ContractStakeAmount, PalletDappStakingV3DappInfo, PalletDappStakingV3PeriodEndInfo, PalletDappStakingV3ProtocolState, PalletDappStakingV3SingularStakingInfo, PalletDappStakingV3StakeInfo, StakeCancelWithdrawalParams, SubmitJoinNativeStaking, TransactionData, UnstakingStatus, ValidatorInfo, YieldPoolInfo, YieldPoolMethodInfo, YieldPositionInfo, YieldStepBaseInfo, YieldStepType, YieldTokenBaseInfo } from '@subwallet/extension-base/types';
 import { balanceFormatter, formatNumber, isUrl, reformatAddress } from '@subwallet/extension-base/utils';
 import BigN from 'bignumber.js';
 import fetch from 'cross-fetch';
@@ -68,13 +68,15 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
     const nativeToken = this.nativeToken;
 
     const defaultCallback = async () => {
-      const data: NativeYieldPoolInfo = {
+      const data: AstarDappV3PoolInfo = {
         ...this.baseInfo,
         type: this.type,
         metadata: {
           ...this.metadataInfo,
           description: this.getDescription()
-        }
+        },
+        isVotingSubperiod: false,
+        isLastEra: false
       };
 
       const poolInfo = await this.getPoolInfo();
@@ -135,6 +137,9 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
 
       const activeProtocolState = _activeProtocolState.toPrimitive() as unknown as PalletDappStakingV3ProtocolState;
       const era = activeProtocolState.era;
+      const subPeriod = activeProtocolState.periodInfo.subperiod;
+      const nextSubperiodStartEra = activeProtocolState.periodInfo.nextSubperiodStartEra;
+      const isLastEra = subPeriod === DappStakingV3Subperiod.BUILD_AND_EARN && nextSubperiodStartEra === era + 1; // todo: check this
 
       const minDelegatorStake = substrateApi.api.consts.dappStaking.minimumStakeAmount.toString();
       const unlockingDelay = substrateApi.api.consts.dappStaking.unlockingPeriod.toString(); // in eras
@@ -144,7 +149,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
       const unlockingPeriod = parseInt(unlockingDelay) * eraTime;
       const minToHuman = formatNumber(minDelegatorStake, nativeToken.decimals || 0, balanceFormatter);
 
-      const data: NativeYieldPoolInfo = {
+      const data: AstarDappV3PoolInfo = {
         ...this.baseInfo,
         type: this.type,
         metadata: {
@@ -171,7 +176,9 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
           tvl: undefined, // TODO recheck
           // totalApy: apyInfo !== null ? apyInfo : undefined, // TODO recheck
           unstakingPeriod: unlockingPeriod
-        }
+        },
+        isVotingSubperiod: subPeriod === DappStakingV3Subperiod.VOTING,
+        isLastEra
       };
 
       callback(data);
@@ -211,6 +218,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
     const allDapps = _allDapps as PalletDappStakingV3DappInfo[];
     const activeProtocolState = _activeProtocolState.toPrimitive() as unknown as PalletDappStakingV3ProtocolState;
     const currentPeriod = activeProtocolState.periodInfo.number;
+    const subperiod = activeProtocolState.periodInfo.subperiod;
 
     let bnTotalStake = BN_ZERO;
     let bnTotalActiveStake = BN_ZERO;
@@ -238,11 +246,15 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
         const bnCurrentStake = bnBuildAndEarn.add(bnVoting) || new BN(0);
 
         if (bnCurrentStake.gt(BN_ZERO)) {
-          const dappEarningStatus = bnCurrentStake.gte(new BN(minDelegatorStake)) && currentPeriod === period ? EarningStatus.EARNING_REWARD : EarningStatus.NOT_EARNING;
+          // todo: check dApp unregistered?
+          let dappEarningStatus = bnCurrentStake.gte(new BN(minDelegatorStake)) && currentPeriod === period ? EarningStatus.EARNING_REWARD : EarningStatus.NOT_EARNING;
+
+          if (dappEarningStatus === EarningStatus.EARNING_REWARD && subperiod === DappStakingV3Subperiod.VOTING) {
+            dappEarningStatus = EarningStatus.VOTING;
+          }
 
           bnTotalStake = bnTotalStake.add(bnCurrentStake);
 
-          // todo: check Dapp unregistered?
           if (currentPeriod === period) {
             bnTotalActiveStake = bnTotalActiveStake.add(bnCurrentStake);
           }
@@ -285,7 +297,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
       }
     }
 
-    // Handle locked amount for pool position
+    /** Handle locked amount for pool position */
     if (nominationList.length === 0 && unlockingList.length === 0 && !bnLocked.gt(new BigN(0))) {
       return {
         balanceToken: this.nativeToken.slug,
@@ -305,7 +317,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
       return old.add(new BN(currentValue.claimable));
     }, BN_ZERO);
 
-    // todo: UI need to handle position by lock, not totalStake/activeStake
+    // todo: UI need to handle position by lock, not totalStake
     return {
       status: stakingStatus,
       balanceToken: this.nativeToken.slug,
@@ -342,6 +354,9 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
 
           if (ledger && bnLocked.gt(BigN(0))) {
             const nominatorMetadata = await this.parseNominatorMetadata(chainInfo, owner, substrateApi, ledger, bnLocked);
+
+            // todo: UI need display base on totalLock amount, not totalStake.
+            // noted: stakeBalance is unlocking and it's a part of totalLock (not totalStake)
 
             resultCallback({
               ...defaultInfo,
@@ -435,7 +450,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
       const dappAddress = dappInfo.contractAddress;
       const dappId = dappInfo.dappId;
       const stakersCount = dappInfo.stakersCount;
-
+      // todo: check a  way to get dApp name.
       let dappName;
       let dappIcon;
 
@@ -512,7 +527,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
   }
 
   async createJoinExtrinsic (data: SubmitJoinNativeStaking, positionInfo?: AstarDappV3PositionInfo, bondDest = 'Staked'): Promise<[TransactionData, YieldTokenBaseInfo]> {
-    // todo: handle join in the last era.
+    // todo: handle join in the last era (handle from subscribepool info by return `isLastEra`).
     const { amount, selectedValidators: targetValidators } = data;
     const chainApi = await this.substrateApi.isReady;
     const bnAmount = new BN(amount);
@@ -576,7 +591,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
 
   /* Other action */
 
-  // todo: add button to unlock
+  // todo: UI need add button to unlock
   async handleUnlock (amount: string) {
     const chainApi = await this.substrateApi.isReady;
     const bnAmount = new BN(amount);
@@ -584,7 +599,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
     return chainApi.api.tx.dappStaking.unlock(bnAmount);
   }
 
-  // todo: add button to cancel unlock
+  // todo: UI need add button to cancel unlock
   async handleCancelUnlock () {
     const chainApi = await this.substrateApi.isReady;
 
@@ -592,6 +607,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
   }
 
   async handleWithdrawUnlock (): Promise<TransactionData> {
+    // todo: UI need to update the withdraw action to this function instead of Withdraw for unstake
     const chainApi = await this.substrateApi.isReady;
 
     return chainApi.api.tx.dappStaking.withdrawUnbonded();
@@ -691,10 +707,10 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
   }
 
   // todo: add button to cleanupExpiredStake
-  async handleCleanupExpiredStake (): Promise<TransactionData> {
-    const chainApi = await this.substrateApi.isReady;
-
-    return chainApi.api.tx.dappStaking.cleanupExpiredEnntries();
-  }
+  // async handleCleanupExpiredStake (): Promise<TransactionData> {
+  //   const chainApi = await this.substrateApi.isReady;
+  //
+  //   return chainApi.api.tx.dappStaking.cleanupExpiredEnntries();
+  // }
   /* Other actions */
 }
