@@ -4153,10 +4153,10 @@ export default class KoniExtension {
   }
 
   private async yieldSubmitCancelUnlock (params: RequestCancelUnlock): Promise<SWTransactionResponse> {
-    const { address, slug } = params;
+    const { address, slug, unlockingInfo } = params;
     const poolHandler = this.#koniState.earningService.getPoolHandler(slug);
 
-    if (!poolHandler) {
+    if (!poolHandler || !unlockingInfo) {
       return this.#koniState.transactionService.generateBeforeHandleResponseErrors([new TransactionError(BasicTxErrorType.INVALID_PARAMS)]);
     }
 

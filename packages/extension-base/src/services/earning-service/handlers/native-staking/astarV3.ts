@@ -137,11 +137,11 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
       const era = activeProtocolState.era;
 
       const minDelegatorStake = substrateApi.api.consts.dappStaking.minimumStakeAmount.toString();
-      const unstakingDelay = substrateApi.api.consts.dappStaking.unlockingPeriod.toString(); // in eras
+      const unlockingDelay = substrateApi.api.consts.dappStaking.unlockingPeriod.toString(); // in eras
       const maxNumberOfStakedContracts = substrateApi.api.consts.dappStaking.maxNumberOfStakedContracts.toString(); // todo: check this
 
       const eraTime = _STAKING_ERA_LENGTH_MAP[this.chain] || _STAKING_ERA_LENGTH_MAP.default; // in hours
-      const unstakingPeriod = parseInt(unstakingDelay) * eraTime;
+      const unlockingPeriod = parseInt(unlockingDelay) * eraTime;
       const minToHuman = formatNumber(minDelegatorStake, nativeToken.decimals || 0, balanceFormatter);
 
       const data: NativeYieldPoolInfo = {
@@ -170,7 +170,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
           eraTime,
           tvl: undefined, // TODO recheck
           // totalApy: apyInfo !== null ? apyInfo : undefined, // TODO recheck
-          unstakingPeriod
+          unstakingPeriod: unlockingPeriod
         }
       };
 
@@ -189,7 +189,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
 
   async parseNominatorMetadata (chainInfo: _ChainInfo, address: string, substrateApi: _SubstrateApi, ledger: PalletDappStakingV3AccountLedger, bnLocked: BigN): Promise<Omit<AstarDappV3PositionInfo, keyof BaseYieldPositionInfo>> {
     const nominationList: NominationInfo[] = [];
-    const unstakingList: UnstakingInfo[] = [];
+    const unlockingList: UnstakingInfo[] = [];
 
     const allDappsReq = new Promise((resolve) => {
       fetch(`https://api.astar.network/api/v3/${this.chain}/dapps-staking/chaindapps`, {
@@ -222,6 +222,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
         dAppInfoMap[convertAddress(dappInfo.contractAddress)] = dappInfo;
       });
 
+      //  todo: check previousStaked?
       for (const item of _stakerInfo) {
         const data = item[0].toHuman() as unknown as any[];
         const stakedDapp = data[1] as Record<string, string>;
@@ -237,7 +238,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
         const bnCurrentStake = bnBuildAndEarn.add(bnVoting) || new BN(0);
 
         if (bnCurrentStake.gt(BN_ZERO)) {
-          const dappEarningStatus = bnCurrentStake.gt(BN_ZERO) && bnCurrentStake.gte(new BN(minDelegatorStake)) && currentPeriod === period ? EarningStatus.EARNING_REWARD : EarningStatus.NOT_EARNING;
+          const dappEarningStatus = bnCurrentStake.gte(new BN(minDelegatorStake)) && currentPeriod === period ? EarningStatus.EARNING_REWARD : EarningStatus.NOT_EARNING;
 
           bnTotalStake = bnTotalStake.add(bnCurrentStake);
 
@@ -273,7 +274,8 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
         const currentTimestampMs = Date.now();
         const waitingTimeMs = remainingBlocks * _EXPECTED_BLOCK_TIME[chainInfo.slug] * 1000;
 
-        unstakingList.push({
+        // todo: recheck targetTimestampMs work suitably
+        unlockingList.push({
           chain: chainInfo.slug,
           status: isClaimable ? UnstakingStatus.CLAIMABLE : UnstakingStatus.UNLOCKING,
           claimable: amount,
@@ -284,7 +286,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
     }
 
     // Handle locked amount for pool position
-    if (nominationList.length === 0 && unstakingList.length === 0 && !bnLocked.gt(new BigN(0))) {
+    if (nominationList.length === 0 && unlockingList.length === 0 && !bnLocked.gt(new BigN(0))) {
       return {
         balanceToken: this.nativeToken.slug,
         totalLock: '0',
@@ -299,7 +301,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
     }
 
     const stakingStatus = getEarningStatusByNominations(bnTotalActiveStake, nominationList);
-    const unlockingBalance = unstakingList.reduce((old, currentValue) => {
+    const unlockingBalance = unlockingList.reduce((old, currentValue) => {
       return old.add(new BN(currentValue.claimable));
     }, BN_ZERO);
 
@@ -313,7 +315,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
       unstakeBalance: unlockingBalance.toString(), // actually unlocking balance
       isBondedBefore: bnTotalActiveStake.gt(BN_ZERO),
       nominations: nominationList,
-      unstakings: unstakingList // actually unlocking list
+      unstakings: unlockingList
     };
   }
 
