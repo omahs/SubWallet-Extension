@@ -101,6 +101,18 @@ export interface PalletDappStakingV3ContractStakeAmount {
   stakedFuture: PalletDappStakingV3StakeInfo
 }
 
+export interface PalletDappStakingV3EraRewardSpan {
+  firstEra: number,
+  lastEra: number,
+  span: DappStakingV3EraRewards[]
+}
+
+export interface DappStakingV3EraRewards {
+  stakerRewardPool: string,
+  staked: string,
+  dappRewardPool: string
+}
+
 export interface BlockHeader {
   parentHash: string,
   number: number,

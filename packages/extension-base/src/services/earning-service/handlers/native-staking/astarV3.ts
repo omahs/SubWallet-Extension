@@ -3,12 +3,12 @@
 
 import { _ChainInfo } from '@subwallet/chain-list/types';
 import { TransactionError } from '@subwallet/extension-base/background/errors/TransactionError';
-import { BasicTxErrorType, ExtrinsicType, NominationInfo, UnstakingInfo } from '@subwallet/extension-base/background/KoniTypes';
+import { APIItemState, BasicTxErrorType, ExtrinsicType, NominationInfo, UnstakingInfo } from '@subwallet/extension-base/background/KoniTypes';
 import { getEarningStatusByNominations } from '@subwallet/extension-base/koni/api/staking/bonding/utils';
 import { _EXPECTED_BLOCK_TIME, _STAKING_ERA_LENGTH_MAP } from '@subwallet/extension-base/services/chain-service/constants';
 import { _SubstrateApi } from '@subwallet/extension-base/services/chain-service/types';
 import BaseParaNativeStakingPoolHandler from '@subwallet/extension-base/services/earning-service/handlers/native-staking/base-para';
-import { AstarDappV3PoolInfo, AstarDappV3PositionInfo, AstarV3ErrorType, BaseYieldPositionInfo, DappStakingV3Subperiod, EarningStatus, OptimalYieldPath, PalletDappsStakingDappInfo, PalletDappStakingV3AccountLedger, PalletDappStakingV3ContractStakeAmount, PalletDappStakingV3DappInfo, PalletDappStakingV3PeriodEndInfo, PalletDappStakingV3ProtocolState, PalletDappStakingV3SingularStakingInfo, PalletDappStakingV3StakeInfo, StakeCancelWithdrawalParams, SubmitJoinNativeStaking, SubmitYieldJoinData, TransactionData, UnstakingStatus, ValidatorInfo, YieldPoolInfo, YieldPoolMethodInfo, YieldPositionInfo, YieldStepBaseInfo, YieldStepType, YieldTokenBaseInfo } from '@subwallet/extension-base/types';
+import { AstarDappV3PoolInfo, AstarDappV3PositionInfo, AstarV3ErrorType, BaseYieldPositionInfo, DappStakingV3Subperiod, EarningRewardItem, EarningStatus, OptimalYieldPath, PalletDappsStakingDappInfo, PalletDappStakingV3AccountLedger, PalletDappStakingV3ContractStakeAmount, PalletDappStakingV3DappInfo, PalletDappStakingV3EraRewardSpan, PalletDappStakingV3PeriodEndInfo, PalletDappStakingV3ProtocolState, PalletDappStakingV3SingularStakingInfo, PalletDappStakingV3StakeInfo, StakeCancelWithdrawalParams, SubmitJoinNativeStaking, SubmitYieldJoinData, TransactionData, UnstakingStatus, ValidatorInfo, YieldPoolInfo, YieldPoolMethodInfo, YieldPositionInfo, YieldStepBaseInfo, YieldStepType, YieldTokenBaseInfo } from '@subwallet/extension-base/types';
 import { balanceFormatter, formatNumber, isUrl, reformatAddress } from '@subwallet/extension-base/utils';
 import BigN from 'bignumber.js';
 import fetch from 'cross-fetch';
@@ -34,8 +34,8 @@ const isHasStakedFutureCheck = (stakedInfo: PalletDappStakingV3StakeInfo): boole
 const getPeriodEndInfo = (period: number, _periodEnd: any[]): PalletDappStakingV3PeriodEndInfo => {
   for (const periodEndInfo of _periodEnd) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-    const _periodNumber = periodEndInfo[0].toHuman() as number[];
-    const periodNumber = _periodNumber[0];
+    const _periodNumber = periodEndInfo[0].toHuman() as string[];
+    const periodNumber = parseInt(_periodNumber[0]);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
     const periodInfo = periodEndInfo[1].toHuman() as PalletDappStakingV3PeriodEndInfo;
 
@@ -50,6 +50,166 @@ const getPeriodEndInfo = (period: number, _periodEnd: any[]): PalletDappStakingV
     finalEra: '0'
   };
 };
+
+async function getStakerEraRange (chainApi: _SubstrateApi, address: string) {
+  const rewardRetentionInPeriods = chainApi.api.consts.dappStaking.rewardRetentionInPeriods.toPrimitive() as unknown as number;
+  const eraRewardSpanLength = chainApi.api.consts.dappStaking.eraRewardSpanLength.toPrimitive() as unknown as number;
+
+  const [_protocolState, _ledger, _periodEnd] = await Promise.all([
+    chainApi.api.query.dappStaking.activeProtocolState(),
+    chainApi.api.query.dappStaking.ledger(address),
+    chainApi.api.query.dappStaking.periodEnd.entries()
+  ]);
+  let rewardsExpired = false;
+
+  const protocolState = _protocolState.toPrimitive() as unknown as PalletDappStakingV3ProtocolState;
+  const ledger = _ledger.toPrimitive() as unknown as PalletDappStakingV3AccountLedger;
+  const currentPeriod = protocolState.periodInfo.number;
+  const firstStakedEra = Math.min(
+    ledger.staked.era > 0 ? ledger.staked.era : Infinity,
+    ledger.stakedFuture?.era ?? Infinity
+  );
+  const lastStakedPeriod = Math.max(
+    ledger.staked.period,
+    ledger.stakedFuture?.period ?? 0);
+  let lastStakedEra = 0;
+
+  if (lastStakedPeriod < currentPeriod - rewardRetentionInPeriods) {
+    rewardsExpired = true;
+  } else if (lastStakedPeriod < currentPeriod) {
+    // Find last era from past period.
+    const periodEnd = getPeriodEndInfo(lastStakedPeriod, _periodEnd);
+
+    lastStakedEra = periodEnd?.finalEra ? parseInt(periodEnd.finalEra.replaceAll(',', '')) : 0; // periodInfo shouldn't be undefined for this case.
+  } else if (lastStakedPeriod === currentPeriod) {
+    // Find last era from current period.
+    lastStakedEra = protocolState.era - 1;
+  } else {
+    // eslint-disable-next-line no-throw-literal
+    throw 'Invalid operation.';
+  }
+
+  if (firstStakedEra > lastStakedEra) {
+    rewardsExpired = true;
+  }
+
+  const firstSpanIndex = firstStakedEra - (firstStakedEra % eraRewardSpanLength);
+  const lastSpanIndex = lastStakedEra - (lastStakedEra % eraRewardSpanLength);
+
+  return {
+    ledger,
+    firstStakedEra,
+    lastStakedEra,
+    firstSpanIndex,
+    lastSpanIndex,
+    rewardsExpired,
+    eraRewardSpanLength,
+    lastStakedPeriod
+  };
+}
+
+async function getStakerRewards (chainApi: _SubstrateApi, address: string) {
+  // todo: review result structure
+  // *** 1. Determine last claimable era.
+  const { eraRewardSpanLength,
+    firstSpanIndex,
+    firstStakedEra,
+    lastSpanIndex,
+    lastStakedEra,
+    lastStakedPeriod,
+    ledger,
+    rewardsExpired } = await getStakerEraRange(chainApi, address);
+
+  const result = {
+    amount: BN_ZERO,
+    period: lastStakedPeriod,
+    eraCount: 0
+  };
+
+  if (rewardsExpired) {
+    return result.amount;
+  }
+
+  // *** 2. Create list of all claimable eras with stake amounts.
+  const claimableEras: Map<number, BN> = new Map();
+
+  for (let era = firstStakedEra; era <= lastStakedEra; era++) {
+    let stakedSum = BN_ZERO;
+
+    if (ledger.staked.era <= era && !ledger.stakedFuture) {
+      stakedSum = stakedSum.add(new BN(ledger.staked.buildAndEarn)).add(new BN(ledger.staked.voting));
+    } else if (ledger.stakedFuture) {
+      if (ledger.stakedFuture.era <= era) {
+        stakedSum = stakedSum.add(new BN(ledger.stakedFuture.buildAndEarn)).add(new BN(ledger.stakedFuture.voting));
+      } else if (ledger.staked.era <= era) {
+        stakedSum = stakedSum.add(new BN(ledger.staked.buildAndEarn)).add(new BN(ledger.staked.voting));
+      }
+    }
+
+    claimableEras.set(era, stakedSum);
+  }
+
+  result.eraCount = claimableEras.size;
+
+  // *** 3. Calculate rewards.
+  for (let spanIndex = firstSpanIndex; spanIndex <= lastSpanIndex; spanIndex += eraRewardSpanLength) {
+    const _eraRewards = await chainApi.api.query.dappStaking.eraRewards(spanIndex);
+    const eraRewards = _eraRewards.toPrimitive() as unknown as PalletDappStakingV3EraRewardSpan;
+
+    if (!eraRewards) {
+      continue;
+    }
+
+    for (let era = eraRewards.firstEra; era <= eraRewards.lastEra; era++) {
+      const staked = claimableEras.get(era);
+
+      if (staked) {
+        const eraIndex = era - eraRewards.firstEra;
+        const bnStakerRewardPool = new BN(eraRewards.span[eraIndex].stakerRewardPool);
+        const bnStaked = new BN(eraRewards.span[eraIndex].staked);
+        const a = staked.mul(bnStakerRewardPool).div(bnStaked);
+
+        result.amount = result.amount.add(a);
+      }
+    }
+  }
+
+  return result.amount;
+}
+
+async function getBonusRewards (chainApi: _SubstrateApi, address: string) {
+  const _stakeInfo = await chainApi.api.query.dappStaking.stakerInfo.entries(address);
+  const rewardRetentionInPeriods = chainApi.api.consts.dappStaking.rewardRetentionInPeriods.toPrimitive() as unknown as number;
+  const _periodEnd = await chainApi.api.query.dappStaking.periodEnd.entries();
+  const _activeProtocolState = await chainApi.api.query.dappStaking.activeProtocolState();
+  const activeProtocolState = _activeProtocolState.toPrimitive() as unknown as PalletDappStakingV3ProtocolState;
+  const currentPeriod = activeProtocolState.periodInfo.number;
+
+  if (_stakeInfo.length === 0) {
+    return BN_ZERO;
+  }
+
+  let totalBonus = BN_ZERO;
+
+  for (const item of _stakeInfo) {
+    const stakedInfo = item[1].toPrimitive() as unknown as PalletDappStakingV3SingularStakingInfo;
+    const stakedData = stakedInfo.staked;
+    const bnVoting = new BN(stakedData.voting);
+    const stakedPeriod = stakedData.period;
+    const isLoyalStaker = stakedInfo.loyalStaker;
+
+    if (isLoyalStaker && bnVoting !== BN_ZERO && currentPeriod - stakedPeriod <= rewardRetentionInPeriods && currentPeriod - stakedPeriod > 0) {
+      const periodEndInfo = getPeriodEndInfo(stakedPeriod, _periodEnd);
+      const bnBonusRewardPool = new BN(periodEndInfo.bonusRewardPool);
+      const bnTotalVpStake = new BN(periodEndInfo.totalVpStake);
+      const bnBonusReward = bnVoting.mul(bnBonusRewardPool).div(bnTotalVpStake);
+
+      totalBonus = totalBonus.add(bnBonusReward);
+    }
+  }
+
+  return totalBonus;
+}
 
 export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStakingPoolHandler {
   protected override readonly availableMethod: YieldPoolMethodInfo = {
@@ -514,6 +674,40 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
 
   /* Get pool targets */
 
+  /* Get pool reward */
+
+  override async getPoolReward (useAddresses: string[], callBack: (rs: EarningRewardItem) => void): Promise<VoidFunction> {
+    let cancel = false;
+    const chainApi = await this.substrateApi.isReady;
+
+    for (const address of useAddresses) {
+      if (!cancel) {
+        const [stakerRewards, bonusRewards] = await Promise.all([
+          getStakerRewards(chainApi, address),
+          getBonusRewards(chainApi, address)
+        ]);
+
+        const totalRewards = stakerRewards.add(bonusRewards);
+
+        if (totalRewards > BN_ZERO) {
+          callBack({
+            ...this.baseInfo,
+            address: address,
+            type: this.type,
+            unclaimedReward: totalRewards.toString(),
+            state: APIItemState.READY
+          });
+        }
+      }
+    }
+
+    return () => {
+      cancel = false;
+    };
+  }
+
+  /* Get pool reward */
+
   /* Join pool action */
 
   override get defaultSubmitStep (): YieldStepBaseInfo {
@@ -549,6 +743,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
 
   async createJoinExtrinsic (data: SubmitJoinNativeStaking, positionInfo?: AstarDappV3PositionInfo, bondDest = 'Staked'): Promise<[TransactionData, YieldTokenBaseInfo]> {
     // todo: handle case unclaim reward.
+    // todo: NEED RECHECK ACTIVE LOCK
     const { amount, selectedValidators: targetValidators } = data;
     const chainApi = await this.substrateApi.isReady;
     const bnAmount = new BN(amount);
@@ -654,8 +849,8 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
 
     const allClaimRewardTxs: SubmittableExtrinsic[] = [];
 
-    const eraRewardSpanLength = chainApi.api.consts.dappStaking.eraRewardSpanLength as unknown as number;
-    const rewardRetentionInPeriods = chainApi.api.consts.dappStaking.rewardRetentionInPeriods as unknown as number;
+    const eraRewardSpanLength = chainApi.api.consts.dappStaking.eraRewardSpanLength.toPrimitive() as unknown as number;
+    const rewardRetentionInPeriods = chainApi.api.consts.dappStaking.rewardRetentionInPeriods.toPrimitive() as unknown as number;
 
     const [_stakedInfo, _ledger, _periodEnd, _activeProtocolState] = await Promise.all([
       chainApi.api.query.dappStaking.stakerInfo.entries(address),
@@ -738,70 +933,3 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
   // }
   /* Other actions */
 }
-
-// /* Get pool reward */
-//
-// override async getPoolReward (useAddresses: string[], callBack: (rs: EarningRewardItem) => void): Promise<VoidFunction> {
-//   let cancel = false;
-//   const chainApi = await this.substrateApi.isReady;
-//
-//   for (const address of useAddresses) {
-//   if (!cancel) {
-//     const [_stakedInfo, _ledger, _periodEnd, _activeProtocolState] = await Promise.all([
-//       chainApi.api.query.dappStaking.stakerInfo.entries(address),
-//       chainApi.api.query.dappStaking.ledger(address),
-//       chainApi.api.query.dappStaking.periodEnd.entries(),
-//       chainApi.api.query.dappStaking.activeProtocolState()
-//     ]);
-//
-//     const ledger = _ledger.toPrimitive() as unknown as PalletDappStakingV3AccountLedger;
-//     const staked = ledger.staked;
-//     const stakedFuture = ledger.stakedFuture;
-//     const earnRewardPeriod = staked.period || stakedFuture.period;
-//
-//     const isHasStaked = isHasStakedCheck(staked);
-//     const isHasStakedFuture = isHasStakedFutureCheck(stakedFuture);
-//
-//     if (isHasStaked || isHasStakedFuture) {
-//       let firstEra = 0;
-//       let lastEra = 0;
-//
-//       const activeProtocolState = _activeProtocolState.toPrimitive() as unknown as PalletDappStakingV3ProtocolState;
-//       const currentPeriod = activeProtocolState.periodInfo.number;
-//       const currentEra = activeProtocolState.era;
-//
-//       // todo: there 3 cases: reward expired, reward are in the past period, reward are in the ongoing period. Check case reward expired
-//       if (currentPeriod === earnRewardPeriod) {
-//         firstEra = isHasStaked ? staked.era : isHasStakedFuture ? stakedFuture.era : 0;
-//         lastEra = currentEra - 1;
-//       } else if (currentPeriod > earnRewardPeriod && currentPeriod - earnRewardPeriod <= rewardRetentionInPeriods) {
-//         const oldestPeriod = currentPeriod - rewardRetentionInPeriods;
-//         const previousOldestPeriodEndInfo = getPeriodEndInfo(oldestPeriod - 1, _periodEnd);
-//
-//         firstEra = isHasStaked ? staked.era : stakedFuture.era;
-//         lastEra = parseInt(previousOldestPeriodEndInfo.finalEra);
-//       }
-//
-//       if (firstEra && lastEra) {
-//
-//       }
-//     }
-//
-//     if (_unclaimedReward) {
-//       callBack({
-//         ...this.baseInfo,
-//         address: address,
-//         type: this.type,
-//         unclaimedReward: _unclaimedReward.toString(),
-//         state: APIItemState.READY
-//       });
-//     }
-//   }
-// }
-//
-// return () => {
-//   cancel = false;
-// };
-// }
-//
-// /* Get pool reward */
