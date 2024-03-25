@@ -108,6 +108,7 @@ export interface NativeYieldPositionInfo extends AbstractYieldPositionInfo {
 }
 export interface AstarDappV3PositionInfo extends NativeYieldPositionInfo {
   totalLock: string;
+  activeLock: string;
 }
 
 /**

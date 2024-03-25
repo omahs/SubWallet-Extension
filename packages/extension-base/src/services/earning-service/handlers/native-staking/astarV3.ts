@@ -8,7 +8,7 @@ import { getEarningStatusByNominations } from '@subwallet/extension-base/koni/ap
 import { _EXPECTED_BLOCK_TIME, _STAKING_ERA_LENGTH_MAP } from '@subwallet/extension-base/services/chain-service/constants';
 import { _SubstrateApi } from '@subwallet/extension-base/services/chain-service/types';
 import BaseParaNativeStakingPoolHandler from '@subwallet/extension-base/services/earning-service/handlers/native-staking/base-para';
-import { AstarDappV3PoolInfo, AstarDappV3PositionInfo, BaseYieldPositionInfo, DappStakingV3Subperiod, EarningStatus, PalletDappsStakingDappInfo, PalletDappStakingV3AccountLedger, PalletDappStakingV3ContractStakeAmount, PalletDappStakingV3DappInfo, PalletDappStakingV3PeriodEndInfo, PalletDappStakingV3ProtocolState, PalletDappStakingV3SingularStakingInfo, PalletDappStakingV3StakeInfo, StakeCancelWithdrawalParams, SubmitJoinNativeStaking, TransactionData, UnstakingStatus, ValidatorInfo, YieldPoolInfo, YieldPoolMethodInfo, YieldPositionInfo, YieldStepBaseInfo, YieldStepType, YieldTokenBaseInfo } from '@subwallet/extension-base/types';
+import { AstarDappV3PoolInfo, AstarDappV3PositionInfo, AstarV3ErrorType, BaseYieldPositionInfo, DappStakingV3Subperiod, EarningStatus, OptimalYieldPath, PalletDappsStakingDappInfo, PalletDappStakingV3AccountLedger, PalletDappStakingV3ContractStakeAmount, PalletDappStakingV3DappInfo, PalletDappStakingV3PeriodEndInfo, PalletDappStakingV3ProtocolState, PalletDappStakingV3SingularStakingInfo, PalletDappStakingV3StakeInfo, StakeCancelWithdrawalParams, SubmitJoinNativeStaking, SubmitYieldJoinData, TransactionData, UnstakingStatus, ValidatorInfo, YieldPoolInfo, YieldPoolMethodInfo, YieldPositionInfo, YieldStepBaseInfo, YieldStepType, YieldTokenBaseInfo } from '@subwallet/extension-base/types';
 import { balanceFormatter, formatNumber, isUrl, reformatAddress } from '@subwallet/extension-base/utils';
 import BigN from 'bignumber.js';
 import fetch from 'cross-fetch';
@@ -139,7 +139,8 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
       const era = activeProtocolState.era;
       const subPeriod = activeProtocolState.periodInfo.subperiod;
       const nextSubperiodStartEra = activeProtocolState.periodInfo.nextSubperiodStartEra;
-      const isLastEra = subPeriod === DappStakingV3Subperiod.BUILD_AND_EARN && nextSubperiodStartEra === era + 1; // todo: check this
+      const lastEra = parseInt(nextSubperiodStartEra) - 1;
+      const isLastEra = subPeriod === DappStakingV3Subperiod.BUILD_AND_EARN && era === lastEra;
 
       const minDelegatorStake = substrateApi.api.consts.dappStaking.minimumStakeAmount.toString();
       const unlockingDelay = substrateApi.api.consts.dappStaking.unlockingPeriod.toString(); // in eras
@@ -171,7 +172,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
             fastUnstake: '0'
           },
           farmerCount: 0, // TODO recheck=
-          era: parseInt(era),
+          era: era,
           eraTime,
           tvl: undefined, // TODO recheck
           // totalApy: apyInfo !== null ? apyInfo : undefined, // TODO recheck
@@ -194,7 +195,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
 
   /* Subscribe pool position */
 
-  async parseNominatorMetadata (chainInfo: _ChainInfo, address: string, substrateApi: _SubstrateApi, ledger: PalletDappStakingV3AccountLedger, bnLocked: BigN): Promise<Omit<AstarDappV3PositionInfo, keyof BaseYieldPositionInfo>> {
+  async parseNominatorMetadata (chainInfo: _ChainInfo, address: string, substrateApi: _SubstrateApi, ledger: PalletDappStakingV3AccountLedger, bnLocked: BN): Promise<Omit<AstarDappV3PositionInfo, keyof BaseYieldPositionInfo>> {
     const nominationList: NominationInfo[] = [];
     const unlockingList: UnstakingInfo[] = [];
 
@@ -268,7 +269,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
             activeStake: bnCurrentStake.toString(),
             validatorMinStake: '0',
             validatorIdentity: dappInfo?.contractAddress,
-            hasUnstaking: false // cannot get unstaking info by dapp
+            hasUnstaking: false // unstake immediately moves the amount to lock balance.
           });
         }
       }
@@ -298,7 +299,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
     }
 
     /** Handle locked amount for pool position */
-    if (nominationList.length === 0 && unlockingList.length === 0 && !bnLocked.gt(new BigN(0))) {
+    if (nominationList.length === 0 && unlockingList.length === 0 && !bnLocked.gt(BN_ZERO)) {
       return {
         balanceToken: this.nativeToken.slug,
         totalLock: '0',
@@ -306,6 +307,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
         unstakeBalance: '0',
         status: EarningStatus.NOT_STAKING,
         isBondedBefore: false,
+        activeLock: '0',
         activeStake: '0',
         nominations: [],
         unstakings: []
@@ -323,6 +325,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
       balanceToken: this.nativeToken.slug,
       totalLock: bnLocked.toString(),
       totalStake: bnTotalActiveStake.toString(),
+      activeLock: bnLocked.sub(unlockingBalance).toString(),
       activeStake: bnTotalActiveStake.toString(),
       unstakeBalance: unlockingBalance.toString(), // actually unlocking balance
       isBondedBefore: bnTotalActiveStake.gt(BN_ZERO),
@@ -350,9 +353,9 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
 
           const ledger = _ledger.toPrimitive() as unknown as PalletDappStakingV3AccountLedger;
 
-          const bnLocked = new BigN(ledger.locked);
+          const bnLocked = new BN(ledger.locked);
 
-          if (ledger && bnLocked.gt(BigN(0))) {
+          if (ledger && bnLocked.gt(BN_ZERO)) {
             const nominatorMetadata = await this.parseNominatorMetadata(chainInfo, owner, substrateApi, ledger, bnLocked);
 
             // todo: UI need display base on totalLock amount, not totalStake.
@@ -469,8 +472,8 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
         const isHasStaked = isHasStakedCheck(staked);
         const isHasStakedFuture = isHasStakedFutureCheck(stakedFuture);
 
-        const eraStaked = staked?.era.toString();
-        const eraStakedFuture = stakedFuture?.era.toString();
+        const eraStaked = staked?.era;
+        const eraStakedFuture = stakedFuture?.era;
 
         // todo: check this
         // todo: check if need to store voting and B&E amount seperately
@@ -526,8 +529,26 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
     ];
   }
 
+  override async validateYieldJoin (data: SubmitYieldJoinData, path: OptimalYieldPath): Promise<TransactionError[]> {
+    // todo: handle case stake in last era
+    const chainApi = await this.substrateApi.isReady;
+    const _activeProtocolState = await chainApi.api.query.dappStaking.activeProtocolState();
+    const activeProtocolState = _activeProtocolState.toPrimitive() as unknown as PalletDappStakingV3ProtocolState;
+    const era = activeProtocolState.era;
+    const subPeriod = activeProtocolState.periodInfo.subperiod;
+    const nextSubperiodStartEra = activeProtocolState.periodInfo.nextSubperiodStartEra;
+    const lastEra = parseInt(nextSubperiodStartEra) - 1;
+    const isLastEra = subPeriod === DappStakingV3Subperiod.BUILD_AND_EARN && era === lastEra;
+
+    if (isLastEra) {
+      return [new TransactionError(AstarV3ErrorType.CAN_NOT_JOIN_LAST_ERA, 'Cannot stake in the last era. Please wait to the next era')];
+    }
+
+    return await super.validateYieldJoin(data, path);
+  }
+
   async createJoinExtrinsic (data: SubmitJoinNativeStaking, positionInfo?: AstarDappV3PositionInfo, bondDest = 'Staked'): Promise<[TransactionData, YieldTokenBaseInfo]> {
-    // todo: handle join in the last era (handle from subscribepool info by return `isLastEra`).
+    // todo: handle case unclaim reward.
     const { amount, selectedValidators: targetValidators } = data;
     const chainApi = await this.substrateApi.isReady;
     const bnAmount = new BN(amount);
@@ -572,8 +593,11 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
   /* Leave pool action */
 
   async handleYieldUnstake (amount: string, address: string, selectedTarget?: string): Promise<[ExtrinsicType, TransactionData]> {
-    // todo: handle case unstake make stake amount < voting.
     const chainApi = await this.substrateApi.isReady;
+
+    // todo: handle case unclaim reward.
+    // todo: Alert when user unstake make stake amount < voting.
+
     const bnAmount = new BN(amount);
 
     if (!selectedTarget) {
@@ -655,7 +679,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
 
       const activeProtocolState = _activeProtocolState.toPrimitive() as unknown as PalletDappStakingV3ProtocolState;
       const currentPeriod = activeProtocolState.periodInfo.number;
-      const currentEra = parseInt(activeProtocolState.era);
+      const currentEra = activeProtocolState.era;
 
       // todo: there 3 cases: reward expired, reward are in the past period, reward are in the ongoing period. Check case reward expired
       if (currentPeriod === earnRewardPeriod) {
@@ -714,3 +738,70 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
   // }
   /* Other actions */
 }
+
+// /* Get pool reward */
+//
+// override async getPoolReward (useAddresses: string[], callBack: (rs: EarningRewardItem) => void): Promise<VoidFunction> {
+//   let cancel = false;
+//   const chainApi = await this.substrateApi.isReady;
+//
+//   for (const address of useAddresses) {
+//   if (!cancel) {
+//     const [_stakedInfo, _ledger, _periodEnd, _activeProtocolState] = await Promise.all([
+//       chainApi.api.query.dappStaking.stakerInfo.entries(address),
+//       chainApi.api.query.dappStaking.ledger(address),
+//       chainApi.api.query.dappStaking.periodEnd.entries(),
+//       chainApi.api.query.dappStaking.activeProtocolState()
+//     ]);
+//
+//     const ledger = _ledger.toPrimitive() as unknown as PalletDappStakingV3AccountLedger;
+//     const staked = ledger.staked;
+//     const stakedFuture = ledger.stakedFuture;
+//     const earnRewardPeriod = staked.period || stakedFuture.period;
+//
+//     const isHasStaked = isHasStakedCheck(staked);
+//     const isHasStakedFuture = isHasStakedFutureCheck(stakedFuture);
+//
+//     if (isHasStaked || isHasStakedFuture) {
+//       let firstEra = 0;
+//       let lastEra = 0;
+//
+//       const activeProtocolState = _activeProtocolState.toPrimitive() as unknown as PalletDappStakingV3ProtocolState;
+//       const currentPeriod = activeProtocolState.periodInfo.number;
+//       const currentEra = activeProtocolState.era;
+//
+//       // todo: there 3 cases: reward expired, reward are in the past period, reward are in the ongoing period. Check case reward expired
+//       if (currentPeriod === earnRewardPeriod) {
+//         firstEra = isHasStaked ? staked.era : isHasStakedFuture ? stakedFuture.era : 0;
+//         lastEra = currentEra - 1;
+//       } else if (currentPeriod > earnRewardPeriod && currentPeriod - earnRewardPeriod <= rewardRetentionInPeriods) {
+//         const oldestPeriod = currentPeriod - rewardRetentionInPeriods;
+//         const previousOldestPeriodEndInfo = getPeriodEndInfo(oldestPeriod - 1, _periodEnd);
+//
+//         firstEra = isHasStaked ? staked.era : stakedFuture.era;
+//         lastEra = parseInt(previousOldestPeriodEndInfo.finalEra);
+//       }
+//
+//       if (firstEra && lastEra) {
+//
+//       }
+//     }
+//
+//     if (_unclaimedReward) {
+//       callBack({
+//         ...this.baseInfo,
+//         address: address,
+//         type: this.type,
+//         unclaimedReward: _unclaimedReward.toString(),
+//         state: APIItemState.READY
+//       });
+//     }
+//   }
+// }
+//
+// return () => {
+//   cancel = false;
+// };
+// }
+//
+// /* Get pool reward */

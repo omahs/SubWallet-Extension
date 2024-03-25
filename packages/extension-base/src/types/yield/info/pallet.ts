@@ -64,7 +64,7 @@ export interface PalletDappStakingV3StakeInfo {
 }
 
 export interface PalletDappStakingV3ProtocolState {
-  era: string,
+  era: number,
   nextEraStart: string,
   periodInfo: {
     number: number,
