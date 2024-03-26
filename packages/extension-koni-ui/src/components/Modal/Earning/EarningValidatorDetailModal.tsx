@@ -15,10 +15,11 @@ type Props = ThemeProps & {
   onCancel?: () => void;
   validatorItem: ValidatorDataType;
   chain: string;
+  maxPoolMembersValue?: number;
 };
 
 function Component (props: Props): React.ReactElement<Props> {
-  const { chain, className, onCancel, validatorItem } = props;
+  const { chain, className, maxPoolMembersValue, onCancel, validatorItem } = props;
   const { address: validatorAddress,
     commission,
     decimals,
@@ -133,6 +134,14 @@ function Component (props: Props): React.ReactElement<Props> {
           value={commission}
           valueColorSchema={'even-odd'}
         />
+
+        {
+          maxPoolMembersValue && <MetaInfo.Number
+            label={t('Delegators')}
+            value={maxPoolMembersValue}
+            valueColorSchema={'even-odd'}
+          />
+        }
       </MetaInfo>
     </SwModal>
   );

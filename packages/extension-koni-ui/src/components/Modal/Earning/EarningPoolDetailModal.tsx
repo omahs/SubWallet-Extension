@@ -12,12 +12,13 @@ import styled from 'styled-components';
 
 type Props = ThemeProps & {
   onCancel: () => void,
-  detailItem?: NominationPoolDataType
+  detailItem?: NominationPoolDataType,
+  maxPoolMembersValue?: number
 };
 
 export const EarningPoolDetailModalId = 'earningPoolDetailModalId';
 
-function Component ({ className, detailItem, onCancel }: Props): React.ReactElement<Props> {
+function Component ({ className, detailItem, maxPoolMembersValue, onCancel }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { address = '', bondedAmount, decimals, isProfitable, memberCounter = 0, name, state, symbol } = detailItem || {};
 
@@ -74,6 +75,16 @@ function Component ({ className, detailItem, onCancel }: Props): React.ReactElem
           value={memberCounter}
           valueColorSchema={'even-odd'}
         />
+
+        {
+          maxPoolMembersValue && (
+            <MetaInfo.Number
+              label={t('Delegators')}
+              value={maxPoolMembersValue}
+              valueColorSchema={'even-odd'}
+            />
+          )
+        }
       </MetaInfo>
     </SwModal>
   );

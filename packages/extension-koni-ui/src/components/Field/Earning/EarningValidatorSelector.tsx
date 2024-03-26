@@ -3,6 +3,7 @@
 
 import { getValidatorLabel } from '@subwallet/extension-base/koni/api/staking/bonding/utils';
 import { _STAKING_CHAIN_GROUP } from '@subwallet/extension-base/services/earning-service/constants';
+import { YieldPoolType } from '@subwallet/extension-base/types';
 import { detectTranslate } from '@subwallet/extension-base/utils';
 import { SelectValidatorInput, StakingValidatorItem } from '@subwallet/extension-koni-ui/components';
 import EmptyValidator from '@subwallet/extension-koni-ui/components/Account/EmptyValidator';
@@ -14,7 +15,7 @@ import { VALIDATOR_DETAIL_MODAL } from '@subwallet/extension-koni-ui/constants';
 import { useFilterModal, useGetPoolTargetList, useSelector, useSelectValidators, useYieldPositionDetail } from '@subwallet/extension-koni-ui/hooks';
 import { ThemeProps, ValidatorDataType } from '@subwallet/extension-koni-ui/types';
 import { getValidatorKey } from '@subwallet/extension-koni-ui/utils/transaction/stake';
-import { Badge, Button, Icon, InputRef, ModalContext, SwList, SwModal, useExcludeModal } from '@subwallet/react-ui';
+import { Badge, Button, Icon, InputRef, ModalContext, SwList, SwModal, Tooltip, useExcludeModal } from '@subwallet/react-ui';
 import { SwListSectionRef } from '@subwallet/react-ui/es/sw-list';
 import BigN from 'bignumber.js';
 import { CaretLeft, CheckCircle, FadersHorizontal, SortAscending } from 'phosphor-react';
@@ -96,6 +97,14 @@ const Component = (props: Props, ref: ForwardedRef<InputRef>) => {
   const isRelayChain = useMemo(() => _STAKING_CHAIN_GROUP.relay.includes(chain), [chain]);
   const isSingleSelect = useMemo(() => _isSingleSelect || !isRelayChain, [_isSingleSelect, isRelayChain]);
   const hasReturn = useMemo(() => items[0]?.expectedReturn !== undefined, [items]);
+
+  const maxPoolMembersValue = useMemo(() => {
+    if (poolInfo.type === YieldPoolType.NATIVE_STAKING) {
+      return poolInfo.maxPoolMembers;
+    }
+
+    return undefined;
+  }, [poolInfo]);
 
   const sortingOptions: SortOption[] = useMemo(() => {
     const result: SortOption[] = [
@@ -195,7 +204,16 @@ const Component = (props: Props, ref: ForwardedRef<InputRef>) => {
           return new BigN(a.minBond).minus(b.minBond).toNumber();
         case SortKey.NOMINATING:
           return sortValidator(a, b);
+
         case SortKey.DEFAULT:
+          if (a.isCrowded && !b.isCrowded) {
+            return 1;
+          } else if (!a.isCrowded && b.isCrowded) {
+            return -1;
+          } else {
+            return 0;
+          }
+
         default:
           return 0;
       }
@@ -222,8 +240,14 @@ const Component = (props: Props, ref: ForwardedRef<InputRef>) => {
     setSortSelection(value as SortKey);
   }, []);
 
-  const onClickItem = useCallback((value: string) => {
-    onChangeSelectedValidator(value);
+  const onClickItem = useCallback((item: ValidatorDataType) => {
+    if (!item.isCrowded) {
+      return () => {
+        onChangeSelectedValidator(getValidatorKey(item.address, item.identity));
+      };
+    }
+
+    return undefined;
   }, [onChangeSelectedValidator]);
 
   const onClickMore = useCallback((item: ValidatorDataType) => {
@@ -254,19 +278,39 @@ const Component = (props: Props, ref: ForwardedRef<InputRef>) => {
     const selected = changeValidators.includes(key);
     const nominated = nominatorValueList.includes(key);
 
-    return (
-      <StakingValidatorItem
-        apy={item?.expectedReturn?.toString() || '0'}
-        className={'pool-item'}
-        isNominated={nominated}
-        isSelected={selected}
-        key={key}
-        onClick={onClickItem}
-        onClickMoreBtn={onClickMore(item)}
-        validatorInfo={item}
-      />
-    );
-  }, [changeValidators, nominatorValueList, onClickItem, onClickMore]);
+    return item.isCrowded
+      // eslint-disable-next-line multiline-ternary
+      ? (
+        <Tooltip
+          placement={'top'}
+          title={t(`This ${handleValidatorLabel} has reached the maximum number of members/nominators. Select another to continue`)}
+        >
+          <div className={'__pool-item-wrapper'}>
+            <StakingValidatorItem
+              apy={item?.expectedReturn?.toString() || '0'}
+              className={'pool-item'}
+              isNominated={nominated}
+              isSelected={selected}
+              key={key}
+              onClick={onClickItem(item)}
+              onClickMoreBtn={onClickMore(item)}
+              validatorInfo={item}
+            />
+          </div>
+        </Tooltip>
+      ) : (
+        <StakingValidatorItem
+          apy={item?.expectedReturn?.toString() || '0'}
+          className={'pool-item'}
+          isNominated={nominated}
+          isSelected={selected}
+          key={key}
+          onClick={onClickItem(item)}
+          onClickMoreBtn={onClickMore(item)}
+          validatorInfo={item}
+        />
+      );
+  }, [changeValidators, handleValidatorLabel, nominatorValueList, onClickItem, onClickMore, t]);
 
   const onClickActionBtn = useCallback(() => {
     activeModal(FILTER_MODAL_ID);
@@ -395,6 +439,7 @@ const Component = (props: Props, ref: ForwardedRef<InputRef>) => {
       {viewDetailItem && (
         <EarningValidatorDetailModal
           chain={chain}
+          maxPoolMembersValue={maxPoolMembersValue}
           validatorItem={viewDetailItem}
         />
       )}
@@ -407,6 +452,9 @@ const EarningValidatorSelector = styled(forwardRef(Component))<Props>(({ theme: 
     '.ant-sw-modal-header': {
       paddingTop: token.paddingXS,
       paddingBottom: token.paddingLG
+    },
+    '.__pool-item-wrapper': {
+      marginBottom: token.marginXS
     },
 
     '.ant-sw-modal-body': {
