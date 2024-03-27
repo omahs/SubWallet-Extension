@@ -21,13 +21,14 @@ export interface VMCBGEventMap {
 }
 
 export class WorkerMessageCenter {
-  private waitWorkerHandler = createPromiseHandler<Worker>();
+  private waitWorkerHandler = createPromiseHandler<MessagePort>();
   private workerPromise = this.waitWorkerHandler.promise;
-  private worker?: Worker;
+  private workerPort?: MessagePort;
 
-  setWorker (worker: Worker) {
-    this.worker = worker;
-    this.waitWorkerHandler.resolve(worker);
+  setPort (workerPort: MessagePort) {
+    workerPort.start();
+    this.workerPort = workerPort;
+    this.waitWorkerHandler.resolve(workerPort);
   }
 
   getWorker () {
@@ -35,8 +36,8 @@ export class WorkerMessageCenter {
   }
 
   addEventListener (event: 'message', cb: (ev: MessageEvent) => void) {
-    if (this.worker) {
-      this.worker.addEventListener('message', (event) => {
+    if (this.workerPort) {
+      this.workerPort.addEventListener('message', (event) => {
         cb(event);
       });
     } else {
@@ -51,8 +52,8 @@ export class WorkerMessageCenter {
   postMessage (data: any) {
     const _data = data as TransportRequestMessage<keyof RequestSignatures>;
 
-    if (this.worker) {
-      this.worker.postMessage(_data);
+    if (this.workerPort) {
+      this.workerPort.postMessage(_data);
     } else {
       this.workerPromise.then((worker) => {
         worker.postMessage(_data);

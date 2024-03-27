@@ -16,36 +16,40 @@ export interface CustomResponse<T> {
 export type PageStatus = CustomResponse<{ status: 'init' | 'load' | 'crypto_ready' }>
 
 export function responseMessage (response: TransportResponseMessage<keyof RequestSignatures> | PageStatus) {
-  postMessage(response);
+  console.log(response);
 }
 
 export function setupHandlers () {
-  onmessage = (ev) => {
-    const data = ev.data as TransportRequestMessage<keyof RequestSignatures>;
-    const port = {
-      name: PORT_EXTENSION,
-      sender: { url: data.origin || ev.origin },
-      postMessage: responseMessage,
-      onDisconnect: {
-        // eslint-disable-next-line @typescript-eslint/no-empty-function
-        addListener: () => {
+  onconnect = (ev) => {
+    const wport = ev.ports[0];
+
+    wport.onmessage = (ev) => {
+      const data = ev.data as TransportRequestMessage<keyof RequestSignatures>;
+      const port = {
+        ...wport,
+        name: PORT_EXTENSION,
+        postMessage: (message: any) => {
+          wport.postMessage(message, {});
+        },
+        onDisconnect: {
+          addListener: () => undefined
         }
+      } as unknown as chrome.runtime.Port;
+
+      if (data.id?.startsWith(ID_PREFIX) && data.id && data.message) {
+        console.log('===LOG: setupHandlers data.message', data.message);
+
+        if (data.message.startsWith('mobile')) {
+          port.name = PORT_MOBILE;
+        } else if (data.message.startsWith('pri')) {
+          port.name = PORT_EXTENSION;
+        } else {
+          port.name = PORT_CONTENT;
+        }
+
+        // @ts-ignore
+        handlers.handle(data, port);
       }
     };
-
-    if (data.id?.startsWith(ID_PREFIX) && data.id && data.message) {
-      console.log('===LOG: setupHandlers data.message', data.message);
-
-      if (data.message.startsWith('mobile')) {
-        port.name = PORT_MOBILE;
-      } else if (data.message.startsWith('pri')) {
-        port.name = PORT_EXTENSION;
-      } else {
-        port.name = PORT_CONTENT;
-      }
-
-      // @ts-ignore
-      handlers.handle(data, port);
-    }
   };
 }

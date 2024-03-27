@@ -6748,6 +6748,7 @@ __metadata:
     "@subwallet/extension-base": ^1.1.49-0
     "@subwallet/extension-inject": ^1.1.49-0
     "@subwallet/extension-web-ui": ^1.1.49-0
+    "@types/sharedworker": ^0.0.113
     assert: ^2.0.0
     babel-loader: ^8.2.5
     browser-resolve: ^2.0.0
@@ -7470,6 +7471,13 @@ __metadata:
   version: 0.0.80
   resolution: "@types/serviceworker@npm:0.0.80"
   checksum: c7daef526ed3bc242af2eac42fd4d616b4a1b8522ae77d33f2034d3725237b07965252a832b6beccbc344ac95cc92ec9787918a24047a73d6e38f8f8449423e4
+  languageName: node
+  linkType: hard
+
+"@types/sharedworker@npm:^0.0.113":
+  version: 0.0.113
+  resolution: "@types/sharedworker@npm:0.0.113"
+  checksum: fad16ffb1f1d5dc2ffe3ce3026727bc151aafac73f19a10ff3f27e779c50b22f5ed698a3317cc2c166969f533d5ef534236a5f5ef7e444f24e3a9c33c499f8ab
   languageName: node
   linkType: hard
 

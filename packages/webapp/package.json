@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@polkadot/dev": "^0.65.23",
+    "@types/sharedworker": "^0.0.113",
     "assert": "^2.0.0",
     "babel-loader": "^8.2.5",
     "browser-resolve": "^2.0.0",
