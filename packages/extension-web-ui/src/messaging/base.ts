@@ -5,7 +5,7 @@ import { MessageTypes, MessageTypesWithNoSubscriptions, MessageTypesWithNullRequ
 import { Message } from '@subwallet/extension-base/types';
 import { getId } from '@subwallet/extension-base/utils/getId';
 
-import { VirtualMessageCenter } from './VirtualMessageCenter';
+import { WorkerMessageCenter } from './VirtualMessageCenter';
 
 interface Handler {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -17,37 +17,10 @@ interface Handler {
 
 type Handlers = Record<string, Handler>;
 
-// const port = chrome.runtime.connect({ name: PORT_EXTENSION });
-const port = VirtualMessageCenter.getInstance().ui;
+export const workerMessageCenter = new WorkerMessageCenter();
 const handlers: Handlers = {};
 
-// setup a listener for messages, any incoming resolves the promise
-// port.onMessage.addListener((response: Record<string, any>): void => {
-//   console.log('=====response', response);
-//   const data = response.data;
-//   const handler = handlers[data.id];
-
-//   if (!handler) {
-//     console.error(`Unknown response: ${JSON.stringify(data)}`);
-
-//     return;
-//   }
-
-//   if (!handler.subscriber) {
-//     delete handlers[data.id];
-//   }
-
-//   if (data.subscription) {
-//     // eslint-disable-next-line @typescript-eslint/ban-types
-//     (handler.subscriber as Function)(data.subscription);
-//   } else if (data.error) {
-//     handler.reject(new Error(data.error));
-//   } else {
-//     handler.resolve(data.response);
-//   }
-// });
-
-port.addEventListener('message', (event) => {
+workerMessageCenter.addEventListener('message', (event) => {
   const data = event.data as Message['data'];
   const handler = handlers[data.id];
 
@@ -69,15 +42,6 @@ port.addEventListener('message', (event) => {
   } else {
     // @ts-ignore
     if (data.sender === 'BACKGROUND') {
-      // if (!handler.subscriber) {
-      //   delete handlers[data.id]
-      // }
-
-      // if (data.subscription) {
-      //   // eslint-disable-next-line @typescript-eslint/ban-types
-      //   ;(handler.subscriber as Function)(data.subscription)
-      // }
-      // else
       if (data.error) {
         handler.reject(new Error(data.error));
       } else {
@@ -97,7 +61,7 @@ export function sendMessage<TMessageType extends MessageTypes> (message: TMessag
 
     handlers[id] = { reject, resolve, subscriber };
 
-    port.postMessage({ id, message, request: request || {} });
+    workerMessageCenter.postMessage({ id, message, request: request || {} });
   });
 }
 
@@ -110,7 +74,7 @@ export function lazySendMessage<TMessageType extends MessageTypesWithNoSubscript
   const rs = {
     promise: handlePromise as Promise<ResponseTypes[TMessageType]>,
     start: () => {
-      port.postMessage({ id, message, request: request || {} });
+      workerMessageCenter.postMessage({ id, message, request: request || {} });
     }
   };
 
@@ -131,7 +95,7 @@ export function lazySubscribeMessage<TMessageType extends MessageTypesWithSubscr
   const rs = {
     promise: handlePromise as Promise<ResponseTypes[TMessageType]>,
     start: () => {
-      port.postMessage({ id, message, request: request || {} });
+      workerMessageCenter.postMessage({ id, message, request: request || {} });
     },
     unsub: () => {
       const handler = handlers[id];

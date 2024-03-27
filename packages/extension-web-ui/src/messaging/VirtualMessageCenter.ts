@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { RequestSignatures, TransportRequestMessage, TransportResponseMessage } from '@subwallet/extension-base/background/types';
+import { createPromiseHandler } from '@subwallet/extension-base/utils';
 import EventEmitter from 'eventemitter3';
 
 export interface VirtualEvent {
@@ -17,6 +18,47 @@ export interface VMCUIEventMap {
 
 export interface VMCBGEventMap {
   'message': VirtualEvent;
+}
+
+export class WorkerMessageCenter {
+  private waitWorkerHandler = createPromiseHandler<Worker>();
+  private workerPromise = this.waitWorkerHandler.promise;
+  private worker?: Worker;
+
+  setWorker (worker: Worker) {
+    this.worker = worker;
+    this.waitWorkerHandler.resolve(worker);
+  }
+
+  getWorker () {
+    return this.workerPromise;
+  }
+
+  addEventListener (event: 'message', cb: (ev: MessageEvent) => void) {
+    if (this.worker) {
+      this.worker.addEventListener('message', (event) => {
+        cb(event);
+      });
+    } else {
+      this.workerPromise.then((worker) => {
+        worker.addEventListener('message', (event) => {
+          cb(event);
+        });
+      }).catch(console.error);
+    }
+  }
+
+  postMessage (data: any) {
+    const _data = data as TransportRequestMessage<keyof RequestSignatures>;
+
+    if (this.worker) {
+      this.worker.postMessage(_data);
+    } else {
+      this.workerPromise.then((worker) => {
+        worker.postMessage(_data);
+      }).catch(console.error);
+    }
+  }
 }
 
 export class BGMessageCenter {
@@ -44,6 +86,7 @@ export class BGMessageCenter {
     });
   }
 }
+
 export class UIMessageCenter {
   bg?: BGMessageCenter;
   emitter: EventEmitter<VMCUIEventMap> = new EventEmitter();

@@ -36,3 +36,9 @@ export default function Popup (): React.ReactElement {
     </DataContextProvider>
   );
 }
+
+export function Popup2 (): React.ReactElement {
+  return (
+    <div>Simple Content</div>
+  );
+}

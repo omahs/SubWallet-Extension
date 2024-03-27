@@ -59,7 +59,7 @@ const _additionalEnv = {
   INFURA_API_KEY_SECRET: JSON.stringify(process.env.INFURA_API_KEY_SECRET)
 };
 
-const createConfig = (entry, alias = {}, useSplitChunk = false) => {
+const createConfig = (entry, alias = {}) => {
   const result = {
     context: __dirname,
     devtool: false,
@@ -75,7 +75,7 @@ const createConfig = (entry, alias = {}, useSplitChunk = false) => {
       webSocketServer: false,
       historyApiFallback: true,
       compress: true,
-      port: 9000
+      port: 9003
     },
     module: {
       rules: [
@@ -171,8 +171,24 @@ const createConfig = (entry, alias = {}, useSplitChunk = false) => {
         http: require.resolve('stream-http'),
         https: require.resolve('https-browserify'),
         assert: require.resolve('assert'),
+        chrome: path.resolve(__dirname, './chrome-fallback.js'),
         zlib: false,
         url: false
+      }
+    },
+    optimization: {
+      splitChunks: {
+        maxSize: 3000000,
+        cacheGroups: {
+          vendors: {
+            test: /[\\/]node_modules[\\/]/,
+            priority: -10
+          },
+          default: {
+            priority: -20,
+            reuseExistingChunk: true
+          }
+        }
       }
     },
     watch: false
@@ -182,8 +198,6 @@ const createConfig = (entry, alias = {}, useSplitChunk = false) => {
 };
 
 module.exports = createConfig({
-  fallback: './src/fallback.ts',
-  webapp: './src/webRunner.ts',
   main: './src/index.tsx'
 }, {
   'manta-extension-sdk': './manta-extension-sdk-empty.ts'
