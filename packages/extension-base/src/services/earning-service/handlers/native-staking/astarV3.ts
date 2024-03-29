@@ -342,6 +342,8 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
         isLastEra
       };
 
+      console.log('data', data);
+
       callback(data);
     }) as unknown as UnsubscribePromise);
 
@@ -381,7 +383,6 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
     const currentPeriod = activeProtocolState.periodInfo.number;
     const subperiod = activeProtocolState.periodInfo.subperiod;
 
-    let bnTotalStake = BN_ZERO;
     let bnTotalActiveStake = BN_ZERO;
 
     if (_stakerInfo.length > 0) {
@@ -402,21 +403,19 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
         const stakeData = stakedInfo.staked;
         const bnBuildAndEarn = new BN(stakeData.buildAndEarn);
         const bnVoting = new BN(stakeData.voting);
-        const period = stakeData.period;
+        const stakedPeriod = stakeData.period;
 
         const bnCurrentStake = bnBuildAndEarn.add(bnVoting) || new BN(0);
 
         if (bnCurrentStake.gt(BN_ZERO)) {
           // todo: check dApp unregistered?
-          let dappEarningStatus = bnCurrentStake.gte(new BN(minDelegatorStake)) && currentPeriod === period ? EarningStatus.EARNING_REWARD : EarningStatus.NOT_EARNING;
+          let dappEarningStatus = bnCurrentStake.gte(new BN(minDelegatorStake)) && currentPeriod === stakedPeriod ? EarningStatus.EARNING_REWARD : EarningStatus.NOT_EARNING;
 
           if (dappEarningStatus === EarningStatus.EARNING_REWARD && subperiod === DappStakingV3Subperiod.VOTING) {
             dappEarningStatus = EarningStatus.VOTING;
           }
 
-          bnTotalStake = bnTotalStake.add(bnCurrentStake);
-
-          if (currentPeriod === period) {
+          if (currentPeriod === stakedPeriod) {
             bnTotalActiveStake = bnTotalActiveStake.add(bnCurrentStake);
           }
 
@@ -479,13 +478,13 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
       return old.add(new BN(currentValue.claimable));
     }, BN_ZERO);
 
-    // todo: UI need to handle position by lock, not totalStake
+    // todo: UI need to handle position by totallock, not totalStake
     return {
       status: stakingStatus,
       balanceToken: this.nativeToken.slug,
-      totalLock: bnLocked.toString(),
+      totalLock: bnLocked.add(unlockingBalance).toString(),
       totalStake: bnTotalActiveStake.toString(),
-      activeLock: bnLocked.sub(unlockingBalance).toString(),
+      activeLock: bnLocked.sub(bnTotalActiveStake).toString(),
       activeStake: bnTotalActiveStake.toString(),
       unstakeBalance: unlockingBalance.toString(), // actually unlocking balance
       isBondedBefore: bnTotalActiveStake.gt(BN_ZERO),
@@ -518,7 +517,9 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
           if (ledger && bnLocked.gt(BN_ZERO)) {
             const nominatorMetadata = await this.parseNominatorMetadata(chainInfo, owner, substrateApi, ledger, bnLocked);
 
-            // todo: UI need display base on totalLock amount, not totalStake.
+            console.log('nominatorMetadata', nominatorMetadata);
+
+            // todo: UI need display based on totalLock amount, not totalStake.
             // noted: stakeBalance is unlocking and it's a part of totalLock (not totalStake)
 
             resultCallback({
@@ -744,6 +745,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
   async createJoinExtrinsic (data: SubmitJoinNativeStaking, positionInfo?: AstarDappV3PositionInfo, bondDest = 'Staked'): Promise<[TransactionData, YieldTokenBaseInfo]> {
     // todo: handle case unclaim reward.
     // todo: NEED RECHECK ACTIVE LOCK
+    // todo: check join dApp unregistered? Can be disable from getPoolTargets.
     const { amount, selectedValidators: targetValidators } = data;
     const chainApi = await this.substrateApi.isReady;
     const bnAmount = new BN(amount);
@@ -752,11 +754,7 @@ export default class AstarV3NativeStakingPoolHandler extends BaseParaNativeStaki
     let bnActiveLock = BN_ZERO;
 
     if (positionInfo) {
-      const bnTotalLock = new BN(positionInfo.totalLock) || BN_ZERO;
-      const bnTotalStake = new BN(positionInfo.totalStake) || BN_ZERO;
-      const bnUnlocking = new BN(positionInfo.unstakeBalance) || BN_ZERO;
-
-      bnActiveLock = bnTotalLock.sub(bnTotalStake).sub(bnUnlocking);
+      bnActiveLock = new BN(positionInfo.activeLock) || BN_ZERO;
     }
 
     const dappInfo = targetValidators[0];
