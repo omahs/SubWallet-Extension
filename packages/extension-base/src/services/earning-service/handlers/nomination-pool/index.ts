@@ -5,10 +5,10 @@ import { TransactionError } from '@subwallet/extension-base/background/errors/Tr
 import { APIItemState, BasicTxErrorType, ChainType, ExtrinsicType, NominationInfo, StakingTxErrorType, StakingType, UnstakingInfo } from '@subwallet/extension-base/background/KoniTypes';
 import { calculateChainStakedReturnV2, calculateInflation, getAvgValidatorEraReward, getExistUnstakeErrorMessage, getMinStakeErrorMessage, getSupportedDaysByHistoryDepth, parsePoolStashAddress } from '@subwallet/extension-base/koni/api/staking/bonding/utils';
 import KoniState from '@subwallet/extension-base/koni/background/handlers/State';
-import { _EXPECTED_BLOCK_TIME, _STAKING_ERA_LENGTH_MAP } from '@subwallet/extension-base/services/chain-service/constants';
+import { _STAKING_ERA_LENGTH_MAP } from '@subwallet/extension-base/services/chain-service/constants';
 import { _SubstrateApi } from '@subwallet/extension-base/services/chain-service/types';
 import { _getChainSubstrateAddressPrefix } from '@subwallet/extension-base/services/chain-service/utils';
-import { BaseYieldPositionInfo, EarningRewardHistoryItem, EarningRewardItem, EarningStatus, HandleYieldStepData, NominationPoolInfo, NominationYieldPoolInfo, OptimalYieldPath, OptimalYieldPathParams, PalletNominationPoolsBondedPoolInner, PalletNominationPoolsPoolMember, PalletStakingActiveEraInfo, PalletStakingExposure, PalletStakingNominations, RequestStakePoolingBonding, StakeCancelWithdrawalParams, SubmitJoinNominationPool, SubmitYieldJoinData, TransactionData, UnstakingStatus, YieldPoolInfo, YieldPoolMethodInfo, YieldPoolType, YieldPositionInfo, YieldStepBaseInfo, YieldStepType, YieldTokenBaseInfo } from '@subwallet/extension-base/types';
+import { BaseYieldPositionInfo, EarningRewardHistoryItem, EarningRewardItem, EarningStatus, HandleYieldStepData, NominationPoolInfo, NominationYieldPoolInfo, OptimalYieldPath, OptimalYieldPathParams, PalletNominationPoolsBondedPoolInner, PalletNominationPoolsClaimPermission, PalletNominationPoolsPoolMember, PalletStakingActiveEraInfo, PalletStakingExposure, PalletStakingNominations, RequestStakePoolingBonding, StakeCancelWithdrawalParams, SubmitJoinNominationPool, SubmitYieldJoinData, TransactionData, UnstakingStatus, YieldPoolInfo, YieldPoolMethodInfo, YieldPoolType, YieldPositionInfo, YieldStepBaseInfo, YieldStepType, YieldTokenBaseInfo } from '@subwallet/extension-base/types';
 import { balanceFormatter, formatNumber, reformatAddress } from '@subwallet/extension-base/utils';
 import BigN from 'bignumber.js';
 import { t } from 'i18next';
@@ -20,6 +20,18 @@ import { Codec } from '@polkadot/types/types';
 import { BN, BN_ZERO, hexToString, isHex, noop } from '@polkadot/util';
 
 import BasePoolHandler from '../base';
+
+function getSetClaimPermissionExtrinsic (claimPermission: PalletNominationPoolsClaimPermission, chainApi: _SubstrateApi) {
+  if (claimPermission === PalletNominationPoolsClaimPermission.PERMISSIONLESS_COMPOUND) {
+    return chainApi.api.tx.nominationPools.setClaimPermission(PalletNominationPoolsClaimPermission.PERMISSIONLESS_COMPOUND);
+  } else if (claimPermission === PalletNominationPoolsClaimPermission.PERMISSIONLESS_WITHDRAW) {
+    return chainApi.api.tx.nominationPools.setClaimPermission(PalletNominationPoolsClaimPermission.PERMISSIONLESS_WITHDRAW);
+  } else if (claimPermission === PalletNominationPoolsClaimPermission.PERMISSIONLESS_ALL) {
+    return chainApi.api.tx.nominationPools.setClaimPermission(PalletNominationPoolsClaimPermission.PERMISSIONLESS_ALL);
+  }
+
+  return undefined;
+}
 
 export default class NominationPoolHandler extends BasePoolHandler {
   public readonly type = YieldPoolType.NOMINATION_POOL;
@@ -446,7 +458,7 @@ export default class NominationPoolHandler extends BasePoolHandler {
   }
 
   protected async getSubmitStep (params: OptimalYieldPathParams): Promise<YieldStepBaseInfo> {
-    const { address, amount, slug, targets } = params;
+    const { address, amount, claimPermissions, slug, targets } = params;
 
     if (!targets || !targets.length) {
       return Promise.reject(new TransactionError(BasicTxErrorType.INVALID_PARAMS));
@@ -456,7 +468,8 @@ export default class NominationPoolHandler extends BasePoolHandler {
       amount,
       address,
       slug,
-      selectedPool: targets[0] as NominationPoolInfo
+      selectedPool: targets[0] as NominationPoolInfo,
+      claimPermissions
     };
     const positionInfo = await this.getPoolPosition(address);
     const [, fee] = await this.createJoinExtrinsic(data, positionInfo);
@@ -521,7 +534,7 @@ export default class NominationPoolHandler extends BasePoolHandler {
   }
 
   async createJoinExtrinsic (data: SubmitJoinNominationPool, positionInfo?: YieldPositionInfo): Promise<[TransactionData, YieldTokenBaseInfo]> {
-    const { amount, selectedPool: { id: selectedPoolId } } = data;
+    const { amount, claimPermissions, selectedPool: { id: selectedPoolId } } = data;
 
     const chainApi = await this.substrateApi.isReady;
     const bnActiveStake = new BN(positionInfo?.activeStake || '0');
@@ -536,14 +549,39 @@ export default class NominationPoolHandler extends BasePoolHandler {
       return [extrinsic, { slug: tokenSlug, amount: '0' }];
     };
 
-    if (bnActiveStake.gt(BN_ZERO)) { // already joined a pool
-      const extrinsic = chainApi.api.tx.nominationPools.bondExtra({ FreeBalance: amount });
+    let extrinsic: SubmittableExtrinsic<'promise'>;
 
-      return compoundResult(extrinsic);
+    // already stake & set claimPermissions
+    if (bnActiveStake.gt(BN_ZERO) && claimPermissions) {
+      const claimPermissionExtrinsic = getSetClaimPermissionExtrinsic(claimPermissions, chainApi);
+
+      extrinsic = chainApi.api.tx.utility.batchAll([
+        chainApi.api.tx.nominationPools.bondExtra({ FreeBalance: amount }),
+        claimPermissionExtrinsic
+      ]);
     }
 
-    const extrinsic = chainApi.api.tx.nominationPools.join(amount, selectedPoolId);
+    // first stake & set claimPermissions
+    if (!bnActiveStake.gt(BN_ZERO) && claimPermissions) {
+      const claimPermissionExtrinsic = getSetClaimPermissionExtrinsic(claimPermissions, chainApi);
 
+      extrinsic = chainApi.api.tx.utility.batchAll([
+        chainApi.api.tx.nominationPools.join(amount, selectedPoolId),
+        claimPermissionExtrinsic
+      ]);
+    }
+
+    // already stake & not set claimPermissions
+    if (bnActiveStake.gt(BN_ZERO) && !claimPermissions) {
+      extrinsic = chainApi.api.tx.nominationPools.bondExtra({ FreeBalance: amount });
+    }
+
+    // first stake & not set claimPermissions
+    if (!bnActiveStake.gt(BN_ZERO) && !claimPermissions) {
+      extrinsic = chainApi.api.tx.nominationPools.join(amount, selectedPoolId);
+    }
+
+    // @ts-ignore
     return compoundResult(extrinsic);
   }
 
@@ -662,5 +700,16 @@ export default class NominationPoolHandler extends BasePoolHandler {
     }
   }
 
+  async setClaimPermissionless (params: PalletNominationPoolsClaimPermission): Promise<TransactionData> {
+    const chainApi = await this.substrateApi.isReady;
+
+    if (params === PalletNominationPoolsClaimPermission.PERMISSIONLESS_COMPOUND) {
+      return chainApi.api.tx.nominationPools.setClaimPermission(PalletNominationPoolsClaimPermission.PERMISSIONLESS_COMPOUND);
+    } else if (params === PalletNominationPoolsClaimPermission.PERMISSIONLESS_WITHDRAW) {
+      return chainApi.api.tx.nominationPools.setClaimPermission(PalletNominationPoolsClaimPermission.PERMISSIONLESS_WITHDRAW);
+    } else {
+      return chainApi.api.tx.nominationPools.setClaimPermission(PalletNominationPoolsClaimPermission.PERMISSIONED);
+    }
+  }
   /* Other actions */
 }
