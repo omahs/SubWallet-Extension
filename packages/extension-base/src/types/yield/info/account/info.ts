@@ -4,6 +4,7 @@
 import { BasePoolInfo, YieldPoolType } from '../base';
 import { EarningStatus, NominationInfo } from './target';
 import { UnstakingInfo } from './unstake';
+import {PalletNominationPoolsClaimPermission} from "@subwallet/extension-base/types";
 
 export interface YieldAssetBalance {
   slug: string, // token slug
@@ -55,6 +56,8 @@ export interface AbstractYieldPositionInfo extends BaseYieldPositionInfo {
   status: EarningStatus;
   /** List unstake request of the account - use for nomination pool and native staking */
   unstakings: UnstakingInfo[];
+  /** claim permission status of the account */
+  claimPermissionStatus: PalletNominationPoolsClaimPermission;
 
   /* Special info */
 }

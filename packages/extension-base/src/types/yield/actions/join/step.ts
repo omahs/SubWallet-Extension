@@ -45,8 +45,7 @@ export interface OptimalYieldPathParams {
 export enum PalletNominationPoolsClaimPermission {
   PERMISSIONED = 'Permissioned',
   PERMISSIONLESS_COMPOUND = 'PermissionlessCompound',
-  PERMISSIONLESS_WITHDRAW = 'PermissionlessWithdraw',
-  PERMISSIONLESS_ALL = 'PermissionlessAll'
+  PERMISSIONLESS_WITHDRAW = 'PermissionlessWithdraw'
 }
 
 /**

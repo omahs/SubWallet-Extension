@@ -26,8 +26,6 @@ function getSetClaimPermissionExtrinsic (claimPermission: PalletNominationPoolsC
     return chainApi.api.tx.nominationPools.setClaimPermission(PalletNominationPoolsClaimPermission.PERMISSIONLESS_COMPOUND);
   } else if (claimPermission === PalletNominationPoolsClaimPermission.PERMISSIONLESS_WITHDRAW) {
     return chainApi.api.tx.nominationPools.setClaimPermission(PalletNominationPoolsClaimPermission.PERMISSIONLESS_WITHDRAW);
-  } else if (claimPermission === PalletNominationPoolsClaimPermission.PERMISSIONLESS_ALL) {
-    return chainApi.api.tx.nominationPools.setClaimPermission(PalletNominationPoolsClaimPermission.PERMISSIONLESS_ALL);
   }
 
   return undefined;
@@ -194,7 +192,7 @@ export default class NominationPoolHandler extends BasePoolHandler {
 
   /* Subscribe pool position */
 
-  async parsePoolMemberMetadata (substrateApi: _SubstrateApi, poolMemberInfo: PalletNominationPoolsPoolMember, currentEra: string, _deriveSessionProgress: DeriveSessionProgress): Promise<Omit<YieldPositionInfo, keyof BaseYieldPositionInfo>> {
+  async parsePoolMemberMetadata (substrateApi: _SubstrateApi, poolMemberInfo: PalletNominationPoolsPoolMember, currentEra: string, _deriveSessionProgress: DeriveSessionProgress, owner: string): Promise<Omit<YieldPositionInfo, keyof BaseYieldPositionInfo>> {
     const chainInfo = this.chainInfo;
     const unlimitedNominatorRewarded = substrateApi.api.consts.staking.maxExposurePageSize !== undefined;
     const _maxNominatorRewardedPerValidator = (substrateApi.api.consts.staking.maxNominatorRewardedPerValidator || 0).toString();
@@ -202,15 +200,17 @@ export default class NominationPoolHandler extends BasePoolHandler {
     const poolsPalletId = substrateApi.api.consts.nominationPools.palletId.toString();
     const poolStashAccount = parsePoolStashAddress(substrateApi.api, 0, poolMemberInfo.poolId, poolsPalletId);
 
-    const [_nominations, _poolMetadata, _activeEra] = await Promise.all([
+    const [_nominations, _poolMetadata, _activeEra, _claimPermission] = await Promise.all([
       substrateApi.api.query.staking.nominators(poolStashAccount),
       substrateApi.api.query.nominationPools.metadata(poolMemberInfo.poolId),
-      substrateApi.api.query.staking.activeEra()
+      substrateApi.api.query.staking.activeEra(),
+      substrateApi.api.query.nominationPools.claimPermissions(owner)
     ]);
 
     const poolMetadata = _poolMetadata.toPrimitive() as unknown as string;
     const nominations = _nominations.toJSON() as unknown as PalletStakingNominations;
     const poolName = isHex(poolMetadata) ? hexToString(poolMetadata) : poolMetadata;
+    const claimPermission = _claimPermission.toPrimitive() as PalletNominationPoolsClaimPermission;
 
     let stakingStatus = EarningStatus.NOT_EARNING;
 
@@ -287,7 +287,8 @@ export default class NominationPoolHandler extends BasePoolHandler {
       unstakeBalance: unstakingBalance.toString(),
       isBondedBefore: bnTotalStake.gt(BN_ZERO),
       nominations: [joinedPoolInfo], // can only join 1 pool at a time
-      unstakings
+      unstakings,
+      claimPermissionStatus: claimPermission
     };
   }
 
@@ -318,7 +319,7 @@ export default class NominationPoolHandler extends BasePoolHandler {
           const owner = reformatAddress(useAddresses[i], 42);
 
           if (poolMemberInfo) {
-            const nominatorMetadata = await this.parsePoolMemberMetadata(substrateApi, poolMemberInfo, currentEra, _deriveSessionProgress);
+            const nominatorMetadata = await this.parsePoolMemberMetadata(substrateApi, poolMemberInfo, currentEra, _deriveSessionProgress, owner);
 
             resultCallback({
               ...defaultInfo,
@@ -338,7 +339,8 @@ export default class NominationPoolHandler extends BasePoolHandler {
               isBondedBefore: false,
               status: EarningStatus.NOT_STAKING,
               nominations: [], // can only join 1 pool at a time
-              unstakings: []
+              unstakings: [],
+              claimPermissionStatus: PalletNominationPoolsClaimPermission.PERMISSIONED
             });
           }
         }));
