@@ -57,8 +57,6 @@ export default class FeeService {
   public subscribeFees (callback: (data: Record<string, EvmFeeInfo>) => void) {
     let cancel = false;
 
-    // eslint-disable-next-line prefer-const
-
     const fetchData = () => {
       this.updateFees().finally(() => {
         if (!cancel) {

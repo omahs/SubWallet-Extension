@@ -2069,7 +2069,7 @@ export default class KoniExtension {
             const priority = await calculateGasFeeParams(web3, networkKey);
 
             if (priority.baseGasFee) {
-              const maxFee = priority.maxFeePerGas;
+              const maxFee = priority.options[priority.options.default].maxFeePerGas;
 
               estimatedFee = maxFee.multipliedBy(gasLimit).toFixed(0);
             } else {

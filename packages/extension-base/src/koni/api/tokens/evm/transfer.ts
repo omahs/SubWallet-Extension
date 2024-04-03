@@ -65,8 +65,8 @@ export async function getEVMTransactionObject (
     value: value,
     from: from,
     gasPrice: priority.gasPrice,
-    maxFeePerGas: priority.maxFeePerGas?.toString(),
-    maxPriorityFeePerGas: priority.maxPriorityFeePerGas?.toString()
+    maxFeePerGas: priority.options?.[priority.options.default].maxFeePerGas.toString(),
+    maxPriorityFeePerGas: priority.options?.[priority.options.default].maxPriorityFeePerGas.toString()
   } as TransactionConfig;
 
   const gasLimit = await web3Api.api.eth.estimateGas(transactionObject);
@@ -76,7 +76,7 @@ export async function getEVMTransactionObject (
   let estimateFee: BigN;
 
   if (priority.baseGasFee) {
-    const maxFee = priority.maxFeePerGas;
+    const maxFee = priority.options[priority.options.default].maxFeePerGas;
 
     estimateFee = maxFee.multipliedBy(gasLimit);
   } else {
@@ -137,8 +137,8 @@ export async function getERC20TransactionObject (
     to: assetAddress,
     data: transferData,
     gasPrice: priority.gasPrice,
-    maxFeePerGas: priority.maxFeePerGas?.toString(),
-    maxPriorityFeePerGas: priority.maxPriorityFeePerGas?.toString()
+    maxFeePerGas: priority.options?.[priority.options.default].maxFeePerGas.toString(),
+    maxPriorityFeePerGas: priority.options?.[priority.options.default].maxPriorityFeePerGas.toString()
   } as TransactionConfig;
 
   if (transferAll) {
@@ -168,8 +168,8 @@ export async function getERC721Transaction (
   return {
     from: senderAddress,
     gasPrice: priority.gasPrice,
-    maxFeePerGas: priority.maxFeePerGas?.toString(),
-    maxPriorityFeePerGas: priority.maxPriorityFeePerGas?.toString(),
+    maxFeePerGas: priority.options?.[priority.options.default].maxFeePerGas.toString(),
+    maxPriorityFeePerGas: priority.options?.[priority.options.default].maxPriorityFeePerGas.toString(),
     gas: gasLimit,
     to: contractAddress,
     value: '0x00',

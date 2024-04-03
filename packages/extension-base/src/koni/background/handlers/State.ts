@@ -1505,14 +1505,13 @@ export default class KoniState {
         }
       })();
 
-      promiseList.push(Promise.race([promise, timeoutPromise]).then((result) => {
-        return [slug, result
+      promiseList.push(Promise.race([promise, timeoutPromise]).then((priority) => {
+        return [slug, priority
           ? {
-            ...result,
-            gasPrice: result.gasPrice?.toString(),
-            maxFeePerGas: result.maxFeePerGas?.toString(),
-            maxPriorityFeePerGas: result.maxPriorityFeePerGas?.toString(),
-            baseGasFee: result.baseGasFee?.toString()
+            ...priority,
+            gasPrice: priority.gasPrice?.toString(),
+            options: priority.options,
+            baseGasFee: priority.baseGasFee?.toString()
           } as EvmFeeInfo
           : null];
       }));
@@ -1572,10 +1571,10 @@ export default class KoniState {
       const priority = await calculateGasFeeParams(evmApi, networkKey);
 
       if (priority.baseGasFee) {
-        transaction.maxPriorityFeePerGas = priority.maxPriorityFeePerGas.toString();
-        transaction.maxFeePerGas = priority.maxFeePerGas.toString();
+        transaction.maxPriorityFeePerGas = priority.options[priority.options.default].maxPriorityFeePerGas.toString();
+        transaction.maxFeePerGas = priority.options[priority.options.default].maxFeePerGas.toString();
 
-        const maxFee = priority.maxFeePerGas;
+        const maxFee = priority.options[priority.options.default].maxFeePerGas;
 
         estimateGas = maxFee.multipliedBy(transaction.gas).toFixed(0);
       } else {
