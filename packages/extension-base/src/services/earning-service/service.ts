@@ -970,7 +970,7 @@ export default class EarningService implements StoppableServiceInterface, Persis
     const { slug } = params;
     const handler = this.getPoolHandler(slug);
 
-    if (handler && _STAKING_CHAIN_GROUP.nominationPool.includes(slug)) {
+    if (handler) {
       return (handler as NominationPoolHandler).handleSetClaimPermissionless(params);
     } else {
       return Promise.reject(new TransactionError(BasicTxErrorType.INTERNAL_ERROR));

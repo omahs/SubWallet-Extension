@@ -57,8 +57,6 @@ export interface AbstractYieldPositionInfo extends BaseYieldPositionInfo {
   status: EarningStatus;
   /** List unstake request of the account - use for nomination pool and native staking */
   unstakings: UnstakingInfo[];
-  /** claim permission status of the account */
-  claimPermissionStatus: PalletNominationPoolsClaimPermission;
 
   /* Special info */
 }
@@ -100,6 +98,8 @@ export interface LendingYieldPositionInfo extends SpecialYieldPositionInfo {
  * */
 export interface NominationYieldPositionInfo extends AbstractYieldPositionInfo {
   type: YieldPoolType.NOMINATION_POOL;
+  /** claim permission status of the account */
+  claimPermissionStatus: PalletNominationPoolsClaimPermission;
 }
 
 /**
