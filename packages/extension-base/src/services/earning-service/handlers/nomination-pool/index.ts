@@ -21,16 +21,6 @@ import { BN, BN_ZERO, hexToString, isHex, noop } from '@polkadot/util';
 
 import BasePoolHandler from '../base';
 
-function getSetClaimPermissionExtrinsic (claimPermission: PalletNominationPoolsClaimPermission, chainApi: _SubstrateApi) {
-  if (claimPermission === PalletNominationPoolsClaimPermission.PERMISSIONLESS_COMPOUND) {
-    return chainApi.api.tx.nominationPools.setClaimPermission(PalletNominationPoolsClaimPermission.PERMISSIONLESS_COMPOUND);
-  } else if (claimPermission === PalletNominationPoolsClaimPermission.PERMISSIONLESS_WITHDRAW) {
-    return chainApi.api.tx.nominationPools.setClaimPermission(PalletNominationPoolsClaimPermission.PERMISSIONLESS_WITHDRAW);
-  }
-
-  return undefined;
-}
-
 export default class NominationPoolHandler extends BasePoolHandler {
   public readonly type = YieldPoolType.NOMINATION_POOL;
   protected readonly name: string;
@@ -551,40 +541,30 @@ export default class NominationPoolHandler extends BasePoolHandler {
       return [extrinsic, { slug: tokenSlug, amount: '0' }];
     };
 
-    let extrinsic: SubmittableExtrinsic<'promise'>;
+    let finalExtrinsic: SubmittableExtrinsic<'promise'>;
+    let joinExtrinsic: SubmittableExtrinsic<'promise'>;
+    let claimPermissionExtrinsic: SubmittableExtrinsic<'promise'> | undefined;
 
-    // already stake & set claimPermissions
-    if (bnActiveStake.gt(BN_ZERO) && claimPermissions) {
-      const claimPermissionExtrinsic = getSetClaimPermissionExtrinsic(claimPermissions, chainApi);
+    if (bnActiveStake.gt(BN_ZERO)) {
+      joinExtrinsic = chainApi.api.tx.nominationPools.bondExtra({ FreeBalance: amount });
+    } else {
+      joinExtrinsic = chainApi.api.tx.nominationPools.join(amount, selectedPoolId);
+    }
 
-      extrinsic = chainApi.api.tx.utility.batchAll([
-        chainApi.api.tx.nominationPools.bondExtra({ FreeBalance: amount }),
+    if (claimPermissions) {
+      claimPermissionExtrinsic = this.getSetClaimPermissionExtrinsic(claimPermissions, chainApi);
+    }
+
+    if (claimPermissionExtrinsic) {
+      finalExtrinsic = chainApi.api.tx.utility.batchAll([
+        joinExtrinsic,
         claimPermissionExtrinsic
       ]);
+    } else {
+      finalExtrinsic = joinExtrinsic;
     }
 
-    // first stake & set claimPermissions
-    if (!bnActiveStake.gt(BN_ZERO) && claimPermissions) {
-      const claimPermissionExtrinsic = getSetClaimPermissionExtrinsic(claimPermissions, chainApi);
-
-      extrinsic = chainApi.api.tx.utility.batchAll([
-        chainApi.api.tx.nominationPools.join(amount, selectedPoolId),
-        claimPermissionExtrinsic
-      ]);
-    }
-
-    // already stake & not set claimPermissions
-    if (bnActiveStake.gt(BN_ZERO) && !claimPermissions) {
-      extrinsic = chainApi.api.tx.nominationPools.bondExtra({ FreeBalance: amount });
-    }
-
-    // first stake & not set claimPermissions
-    if (!bnActiveStake.gt(BN_ZERO) && !claimPermissions) {
-      extrinsic = chainApi.api.tx.nominationPools.join(amount, selectedPoolId);
-    }
-
-    // @ts-ignore
-    return compoundResult(extrinsic);
+    return compoundResult(finalExtrinsic);
   }
 
   async handleYieldJoin (_data: SubmitYieldJoinData, path: OptimalYieldPath, currentStep: number): Promise<HandleYieldStepData> {
@@ -702,17 +682,41 @@ export default class NominationPoolHandler extends BasePoolHandler {
     }
   }
 
+  async validateClaimPermissionless (params: RequestSetClaimPermissionless) {
+    const { address, claimPermissionless } = params;
+    const errors: TransactionError[] = [];
+
+    const poolInfo = await this.getPoolInfo();
+    const poolPosition = await this.getPoolPosition(address) as NominationYieldPositionInfo | undefined;
+
+    if (!poolInfo || !poolPosition) {
+      return [new TransactionError(BasicTxErrorType.INTERNAL_ERROR)];
+    }
+
+    const currentClaimPermissionless = poolPosition.claimPermissionStatus;
+
+    if (claimPermissionless === currentClaimPermissionless) {
+      errors.push(new TransactionError(StakingTxErrorType.NOT_CHANGE_CLAIM_PERMISSION, t('You are already set the {{claimPermission}} status', { replace: { claimPermission: claimPermissionless } })));
+    }
+
+    return Promise.resolve(errors);
+  }
+
   async handleSetClaimPermissionless (params: RequestSetClaimPermissionless): Promise<TransactionData> {
     const chainApi = await this.substrateApi.isReady;
     const { claimPermissionless } = params;
 
-    if (claimPermissionless === PalletNominationPoolsClaimPermission.PERMISSIONLESS_COMPOUND) {
+    return this.getSetClaimPermissionExtrinsic(claimPermissionless, chainApi);
+  }
+
+  getSetClaimPermissionExtrinsic (claimPermission: PalletNominationPoolsClaimPermission, chainApi: _SubstrateApi) {
+    if (claimPermission === PalletNominationPoolsClaimPermission.PERMISSIONLESS_COMPOUND) {
       return chainApi.api.tx.nominationPools.setClaimPermission(PalletNominationPoolsClaimPermission.PERMISSIONLESS_COMPOUND);
-    } else if (claimPermissionless === PalletNominationPoolsClaimPermission.PERMISSIONLESS_WITHDRAW) {
+    } else if (claimPermission === PalletNominationPoolsClaimPermission.PERMISSIONLESS_WITHDRAW) {
       return chainApi.api.tx.nominationPools.setClaimPermission(PalletNominationPoolsClaimPermission.PERMISSIONLESS_WITHDRAW);
-    } else {
-      return chainApi.api.tx.nominationPools.setClaimPermission(PalletNominationPoolsClaimPermission.PERMISSIONED);
     }
+
+    return chainApi.api.tx.nominationPools.setClaimPermission(PalletNominationPoolsClaimPermission.PERMISSIONED);
   }
   /* Other actions */
 }

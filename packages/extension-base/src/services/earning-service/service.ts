@@ -924,6 +924,18 @@ export default class EarningService implements StoppableServiceInterface, Persis
   /* Leave */
 
   /* Other */
+  public async validateClaimPermissionless (params: RequestSetClaimPermissionless): Promise<TransactionError[]> {
+    await this.eventService.waitChainReady;
+
+    const { slug } = params;
+    const handler = this.getPoolHandler(slug);
+
+    if (handler) {
+      return (handler as NominationPoolHandler).validateClaimPermissionless(params);
+    } else {
+      return Promise.reject(new TransactionError(BasicTxErrorType.INTERNAL_ERROR));
+    }
+  }
 
   public async handleYieldWithdraw (params: RequestYieldWithdrawal): Promise<TransactionData> {
     await this.eventService.waitChainReady;

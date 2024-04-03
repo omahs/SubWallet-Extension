@@ -642,7 +642,8 @@ export type TransactionAdditionalInfo = {
   [ExtrinsicType.UNSTAKE_SDOT]: LeavePoolAdditionalData,
   [ExtrinsicType.UNSTAKE_LDOT]: LeavePoolAdditionalData,
   [ExtrinsicType.UNSTAKE_STDOT]: LeavePoolAdditionalData,
-  [ExtrinsicType.STAKING_UNBOND]: Pick<SubmitYieldStepData, 'inputTokenSlug' | 'exchangeRate'>
+  [ExtrinsicType.STAKING_UNBOND]: Pick<SubmitYieldStepData, 'inputTokenSlug' | 'exchangeRate'>,
+  [ExtrinsicType.STAKING_SET_CLAIM_PERMISSIONLESS]: Pick<RequestSetClaimPermissionless, 'claimPermissionless'>
 }
 
 // export type TransactionAdditionalInfo<T extends ExtrinsicType> = T extends ExtrinsicType.TRANSFER_XCM
@@ -718,7 +719,8 @@ export enum StakingTxErrorType {
   EXCEED_MAX_UNSTAKING = 'EXCEED_MAX_UNSTAKING',
   INACTIVE_NOMINATION_POOL = 'INACTIVE_NOMINATION_POOL',
   CAN_NOT_GET_METADATA = 'CAN_NOT_GET_METADATA',
-  NOT_ENOUGH_MIN_UNSTAKE = 'NOT_ENOUGH_MIN_UNSTAKE'
+  NOT_ENOUGH_MIN_UNSTAKE = 'NOT_ENOUGH_MIN_UNSTAKE',
+  NOT_CHANGE_CLAIM_PERMISSION = 'NOT_CHANGE_CLAIM_PERMISSION'
 }
 
 export enum TransferTxErrorType {

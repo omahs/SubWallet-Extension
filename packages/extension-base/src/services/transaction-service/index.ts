@@ -566,8 +566,15 @@ export default class TransactionService {
         break;
       }
 
-      case ExtrinsicType.STAKING_SET_CLAIM_PERMISSIONLESS:
+      case ExtrinsicType.STAKING_SET_CLAIM_PERMISSIONLESS: {
+        const data = parseTransactionData<ExtrinsicType.STAKING_SET_CLAIM_PERMISSIONLESS>(transaction.data);
+
+        historyItem.additionalInfo = {
+          claimPermissionless: data.claimPermissionless
+        } as TransactionAdditionalInfo[ExtrinsicType.STAKING_SET_CLAIM_PERMISSIONLESS];
+
         break;
+      }
 
       case ExtrinsicType.EVM_EXECUTE: {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment

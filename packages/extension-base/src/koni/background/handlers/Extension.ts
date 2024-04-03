@@ -4160,17 +4160,21 @@ export default class KoniExtension {
   private async yieldSubmitSetClaimPermissionless (params: RequestSetClaimPermissionless): Promise<SWTransactionResponse> {
     const { address, slug } = params;
     const poolHandler = this.#koniState.earningService.getPoolHandler(slug);
+    const validation = await this.#koniState.earningService.validateClaimPermissionless(params);
 
     if (!poolHandler) {
       return this.#koniState.transactionService.generateBeforeHandleResponseErrors([new TransactionError(BasicTxErrorType.INVALID_PARAMS)]);
     }
 
-    const chain = poolHandler.chain;
+    if (validation.length > 0) {
+      return this.#koniState.transactionService.generateBeforeHandleResponseErrors(validation);
+    }
+
     const extrinsic = await this.#koniState.earningService.handleSetClaimPermissionless(params);
 
     return await this.#koniState.transactionService.handleTransaction({
       address,
-      chain,
+      chain: poolHandler.chain,
       transaction: extrinsic,
       data: params,
       extrinsicType: ExtrinsicType.STAKING_SET_CLAIM_PERMISSIONLESS,
