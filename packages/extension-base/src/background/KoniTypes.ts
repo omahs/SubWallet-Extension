@@ -10,7 +10,39 @@ import { _ChainState, _EvmApi, _NetworkUpsertParams, _SubstrateApi, _ValidateCus
 import { CrowdloanContributionsResponse } from '@subwallet/extension-base/services/subscan-service/types';
 import { SWTransactionResponse, SWTransactionResult } from '@subwallet/extension-base/services/transaction-service/types';
 import { WalletConnectNotSupportRequest, WalletConnectSessionRequest } from '@subwallet/extension-base/services/wallet-connect-service/types';
-import { BalanceJson, BuyServiceInfo, BuyTokenInfo, EarningRewardHistoryItem, EarningRewardJson, EarningStatus, HandleYieldStepParams, LeavePoolAdditionalData, NominationPoolInfo, OptimalYieldPath, OptimalYieldPathParams, RequestEarlyValidateYield, RequestGetYieldPoolTargets, RequestStakeCancelWithdrawal, RequestStakeClaimReward, RequestUnlockDotCheckCanMint, RequestUnlockDotSubscribeMintedData, RequestYieldLeave, RequestYieldStepSubmit, RequestYieldWithdrawal, ResponseEarlyValidateYield, ResponseGetYieldPoolTargets, SubmitYieldStepData, TokenApproveData, UnlockDotTransactionNft, UnstakingStatus, ValidateYieldProcessParams, YieldPoolInfo, YieldPositionInfo, YieldValidationStatus } from '@subwallet/extension-base/types';
+import {
+  BalanceJson,
+  BuyServiceInfo,
+  BuyTokenInfo,
+  EarningRewardHistoryItem,
+  EarningRewardJson,
+  EarningStatus,
+  HandleYieldStepParams,
+  LeavePoolAdditionalData,
+  NominationPoolInfo,
+  OptimalYieldPath,
+  OptimalYieldPathParams,
+  RequestEarlyValidateYield,
+  RequestGetYieldPoolTargets,
+  RequestSetClaimPermissionless,
+  RequestStakeCancelWithdrawal,
+  RequestStakeClaimReward,
+  RequestUnlockDotCheckCanMint,
+  RequestUnlockDotSubscribeMintedData,
+  RequestYieldLeave,
+  RequestYieldStepSubmit,
+  RequestYieldWithdrawal,
+  ResponseEarlyValidateYield,
+  ResponseGetYieldPoolTargets,
+  SubmitYieldStepData,
+  TokenApproveData,
+  UnlockDotTransactionNft,
+  UnstakingStatus,
+  ValidateYieldProcessParams,
+  YieldPoolInfo,
+  YieldPositionInfo,
+  YieldValidationStatus
+} from '@subwallet/extension-base/types';
 import { InjectedAccount, InjectedAccountWithMeta, MetadataDefBase } from '@subwallet/extension-inject/types';
 import { KeyringPair$Json, KeyringPair$Meta } from '@subwallet/keyring/types';
 import { KeyringOptions } from '@subwallet/ui-keyring/options/types';
@@ -479,6 +511,7 @@ export enum ExtrinsicType {
   STAKING_COMPOUNDING = 'staking.compounding',
   STAKING_CANCEL_COMPOUNDING = 'staking.cancel_compounding',
   STAKING_CANCEL_UNSTAKE = 'staking.cancel_unstake',
+  STAKING_SET_CLAIM_PERMISSIONLESS = 'staking.set_claim_permissionless',
 
   JOIN_YIELD_POOL = 'earn.join_pool', // TODO: review this
   MINT_VDOT = 'earn.mint_vdot',
@@ -528,6 +561,7 @@ export interface ExtrinsicDataTypeMap {
   [ExtrinsicType.STAKING_CANCEL_COMPOUNDING]: RequestTuringCancelStakeCompound,
   [ExtrinsicType.STAKING_CANCEL_UNSTAKE]: RequestStakeCancelWithdrawal,
   [ExtrinsicType.STAKING_POOL_WITHDRAW]: any,
+  [ExtrinsicType.STAKING_SET_CLAIM_PERMISSIONLESS]: RequestSetClaimPermissionless,
 
   // Yield
   [ExtrinsicType.JOIN_YIELD_POOL]: RequestYieldStepSubmit,
@@ -2370,6 +2404,7 @@ export interface KoniRequestSignatures {
   'pri(yield.withdraw.submit)': [RequestYieldWithdrawal, SWTransactionResponse];
   'pri(yield.cancelWithdrawal.submit)': [RequestStakeCancelWithdrawal, SWTransactionResponse];
   'pri(yield.claimReward.submit)': [RequestStakeClaimReward, SWTransactionResponse];
+  'pri(yield.setClaimPermissionless.submit)': [RequestSetClaimPermissionless, SWTransactionResponse];
 
   /* Other */
 

@@ -4,6 +4,7 @@
 import { BaseRequestSign, InternalRequestSign } from '@subwallet/extension-base/background/KoniTypes';
 
 import { BasePoolInfo, UnstakingInfo, YieldPoolInfo } from '../info';
+import {PalletNominationPoolsClaimPermission} from "@subwallet/extension-base/types";
 
 /**
  * @interface YieldLeaveParams
@@ -96,3 +97,11 @@ export interface StakeClaimRewardParams extends BaseRequestSign {
 }
 
 export type RequestStakeClaimReward = InternalRequestSign<StakeClaimRewardParams>;
+
+export interface SetClaimPermissionlessParams extends BaseRequestSign {
+  address: string;
+  slug: string;
+  claimPermissionless: PalletNominationPoolsClaimPermission;
+}
+
+export type RequestSetClaimPermissionless = InternalRequestSign<SetClaimPermissionlessParams>;

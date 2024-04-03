@@ -8,7 +8,7 @@ import KoniState from '@subwallet/extension-base/koni/background/handlers/State'
 import { _STAKING_ERA_LENGTH_MAP } from '@subwallet/extension-base/services/chain-service/constants';
 import { _SubstrateApi } from '@subwallet/extension-base/services/chain-service/types';
 import { _getChainSubstrateAddressPrefix } from '@subwallet/extension-base/services/chain-service/utils';
-import { BaseYieldPositionInfo, EarningRewardHistoryItem, EarningRewardItem, EarningStatus, HandleYieldStepData, NominationPoolInfo, NominationYieldPoolInfo, OptimalYieldPath, OptimalYieldPathParams, PalletNominationPoolsBondedPoolInner, PalletNominationPoolsClaimPermission, PalletNominationPoolsPoolMember, PalletStakingActiveEraInfo, PalletStakingExposure, PalletStakingNominations, RequestStakePoolingBonding, StakeCancelWithdrawalParams, SubmitJoinNominationPool, SubmitYieldJoinData, TransactionData, UnstakingStatus, YieldPoolInfo, YieldPoolMethodInfo, YieldPoolType, YieldPositionInfo, YieldStepBaseInfo, YieldStepType, YieldTokenBaseInfo } from '@subwallet/extension-base/types';
+import { BaseYieldPositionInfo, EarningRewardHistoryItem, EarningRewardItem, EarningStatus, HandleYieldStepData, NominationPoolInfo, NominationYieldPoolInfo, OptimalYieldPath, OptimalYieldPathParams, PalletNominationPoolsBondedPoolInner, PalletNominationPoolsClaimPermission, PalletNominationPoolsPoolMember, PalletStakingActiveEraInfo, PalletStakingExposure, PalletStakingNominations, RequestSetClaimPermissionless, RequestStakePoolingBonding, StakeCancelWithdrawalParams, SubmitJoinNominationPool, SubmitYieldJoinData, TransactionData, UnstakingStatus, YieldPoolInfo, YieldPoolMethodInfo, YieldPoolType, YieldPositionInfo, YieldStepBaseInfo, YieldStepType, YieldTokenBaseInfo } from '@subwallet/extension-base/types';
 import { balanceFormatter, formatNumber, reformatAddress } from '@subwallet/extension-base/utils';
 import BigN from 'bignumber.js';
 import { t } from 'i18next';
@@ -702,12 +702,13 @@ export default class NominationPoolHandler extends BasePoolHandler {
     }
   }
 
-  async setClaimPermissionless (params: PalletNominationPoolsClaimPermission): Promise<TransactionData> {
+  async handleSetClaimPermissionless (params: RequestSetClaimPermissionless): Promise<TransactionData> {
     const chainApi = await this.substrateApi.isReady;
+    const { claimPermissionless } = params;
 
-    if (params === PalletNominationPoolsClaimPermission.PERMISSIONLESS_COMPOUND) {
+    if (claimPermissionless === PalletNominationPoolsClaimPermission.PERMISSIONLESS_COMPOUND) {
       return chainApi.api.tx.nominationPools.setClaimPermission(PalletNominationPoolsClaimPermission.PERMISSIONLESS_COMPOUND);
-    } else if (params === PalletNominationPoolsClaimPermission.PERMISSIONLESS_WITHDRAW) {
+    } else if (claimPermissionless === PalletNominationPoolsClaimPermission.PERMISSIONLESS_WITHDRAW) {
       return chainApi.api.tx.nominationPools.setClaimPermission(PalletNominationPoolsClaimPermission.PERMISSIONLESS_WITHDRAW);
     } else {
       return chainApi.api.tx.nominationPools.setClaimPermission(PalletNominationPoolsClaimPermission.PERMISSIONED);

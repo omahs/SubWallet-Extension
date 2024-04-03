@@ -12,7 +12,7 @@ import BaseLiquidStakingPoolHandler from '@subwallet/extension-base/services/ear
 import { EventService } from '@subwallet/extension-base/services/event-service';
 import DatabaseService from '@subwallet/extension-base/services/storage-service/DatabaseService';
 import { SWTransaction } from '@subwallet/extension-base/services/transaction-service/types';
-import { EarningRewardHistoryItem, EarningRewardItem, EarningRewardJson, HandleYieldStepData, HandleYieldStepParams, OptimalYieldPath, OptimalYieldPathParams, RequestEarlyValidateYield, RequestStakeCancelWithdrawal, RequestStakeClaimReward, RequestYieldLeave, RequestYieldWithdrawal, ResponseEarlyValidateYield, TransactionData, ValidateYieldProcessParams, YieldPoolInfo, YieldPoolTarget, YieldPoolType, YieldPositionInfo } from '@subwallet/extension-base/types';
+import { EarningRewardHistoryItem, EarningRewardItem, EarningRewardJson, HandleYieldStepData, HandleYieldStepParams, OptimalYieldPath, OptimalYieldPathParams, RequestEarlyValidateYield, RequestSetClaimPermissionless, RequestStakeCancelWithdrawal, RequestStakeClaimReward, RequestYieldLeave, RequestYieldWithdrawal, ResponseEarlyValidateYield, TransactionData, ValidateYieldProcessParams, YieldPoolInfo, YieldPoolTarget, YieldPoolType, YieldPositionInfo } from '@subwallet/extension-base/types';
 import { addLazy, categoryAddresses, createPromiseHandler, PromiseHandler, removeLazy } from '@subwallet/extension-base/utils';
 import { fetchStaticCache } from '@subwallet/extension-base/utils/fetchStaticCache';
 import { BehaviorSubject } from 'rxjs';
@@ -959,6 +959,19 @@ export default class EarningService implements StoppableServiceInterface, Persis
 
     if (handler) {
       return handler.handleYieldClaimReward(params.address, params.bondReward);
+    } else {
+      return Promise.reject(new TransactionError(BasicTxErrorType.INTERNAL_ERROR));
+    }
+  }
+
+  public async handleSetClaimPermissionless (params: RequestSetClaimPermissionless) {
+    await this.eventService.waitChainReady;
+
+    const { slug } = params;
+    const handler = this.getPoolHandler(slug);
+
+    if (handler && _STAKING_CHAIN_GROUP.nominationPool.includes(slug)) {
+      return (handler as NominationPoolHandler).handleSetClaimPermissionless(params);
     } else {
       return Promise.reject(new TransactionError(BasicTxErrorType.INTERNAL_ERROR));
     }
