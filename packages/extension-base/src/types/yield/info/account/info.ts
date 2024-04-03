@@ -1,10 +1,11 @@
 // Copyright 2019-2022 @subwallet/extension-base
 // SPDX-License-Identifier: Apache-2.0
 
+import { PalletNominationPoolsClaimPermission } from '@subwallet/extension-base/types';
+
 import { BasePoolInfo, YieldPoolType } from '../base';
 import { EarningStatus, NominationInfo } from './target';
 import { UnstakingInfo } from './unstake';
-import {PalletNominationPoolsClaimPermission} from "@subwallet/extension-base/types";
 
 export interface YieldAssetBalance {
   slug: string, // token slug

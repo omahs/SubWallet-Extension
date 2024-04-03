@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { BaseRequestSign, InternalRequestSign } from '@subwallet/extension-base/background/KoniTypes';
+import { PalletNominationPoolsClaimPermission } from '@subwallet/extension-base/types';
 
 import { BasePoolInfo, UnstakingInfo, YieldPoolInfo } from '../info';
-import {PalletNominationPoolsClaimPermission} from "@subwallet/extension-base/types";
 
 /**
  * @interface YieldLeaveParams
