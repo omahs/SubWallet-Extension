@@ -695,8 +695,16 @@ export default class NominationPoolHandler extends BasePoolHandler {
 
     const currentClaimPermissionless = poolPosition.claimPermissionStatus;
 
+    const messageMapping = {
+      PermissionlessCompound: 'Auto compound',
+      PermissionlessWithdraw: 'Auto withdraw',
+      Permissioned: 'Manual'
+    };
+
     if (claimPermissionless === currentClaimPermissionless) {
-      errors.push(new TransactionError(StakingTxErrorType.NOT_CHANGE_CLAIM_PERMISSION, t('You are already set the {{claimPermission}} status', { replace: { claimPermission: claimPermissionless } })));
+      const permissionMessage = messageMapping[claimPermissionless];
+
+      errors.push(new TransactionError(StakingTxErrorType.NOT_CHANGE_CLAIM_PERMISSION, t('Your claim permission is currently set as {{claimPermission}}. Select another option to change permission.', { replace: { claimPermission: permissionMessage } })));
     }
 
     return Promise.resolve(errors);
