@@ -9,7 +9,6 @@ import { TransactionWarning } from '@subwallet/extension-base/background/warning
 import { ALL_ACCOUNT_KEY } from '@subwallet/extension-base/constants';
 import KoniState from '@subwallet/extension-base/koni/background/handlers/State';
 import { _getAssetDecimals, _getAssetSymbol, _getChainNativeTokenBasicInfo, _getEvmChainId, _isChainEvmCompatible } from '@subwallet/extension-base/services/chain-service/utils';
-import { calculateGasFeeParams } from '@subwallet/extension-base/services/fee-service/utils';
 import { EXTENSION_REQUEST_URL } from '@subwallet/extension-base/services/request-service/constants';
 import { TRANSACTION_TIMEOUT } from '@subwallet/extension-base/services/transaction-service/constants';
 import { parseLiquidStakingEvents, parseLiquidStakingFastUnstakeEvents, parseTransferEventLogs, parseXcmEventLogs } from '@subwallet/extension-base/services/transaction-service/event-parser';
@@ -18,10 +17,11 @@ import { SWTransaction, SWTransactionInput, SWTransactionResponse, TransactionEm
 import { getExplorerLink, parseTransactionData } from '@subwallet/extension-base/services/transaction-service/utils';
 import { isWalletConnectRequest } from '@subwallet/extension-base/services/wallet-connect-service/helpers';
 import { Web3Transaction } from '@subwallet/extension-base/signers/types';
-import { LeavePoolAdditionalData, RequestStakePoolingBonding, RequestYieldStepSubmit, SpecialYieldPoolInfo, YieldPoolType } from '@subwallet/extension-base/types';
-import { anyNumberToBN, reformatAddress } from '@subwallet/extension-base/utils';
+import { EvmEIP1995FeeOption, EvmFeeInfo, LeavePoolAdditionalData, RequestStakePoolingBonding, RequestYieldStepSubmit, SpecialYieldPoolInfo, SubstrateTipInfo, YieldPoolType } from '@subwallet/extension-base/types';
+import { anyNumberToBN, combineEthFee, reformatAddress } from '@subwallet/extension-base/utils';
 import { mergeTransactionAndSignature } from '@subwallet/extension-base/utils/eth/mergeTransactionAndSignature';
 import { isContractAddress, parseContractInput } from '@subwallet/extension-base/utils/eth/parseTransaction';
+import { getId } from '@subwallet/extension-base/utils/getId';
 import { BN_ZERO } from '@subwallet/extension-base/utils/number';
 import keyring from '@subwallet/ui-keyring';
 import BigN from 'bignumber.js';
@@ -87,7 +87,7 @@ export default class TransactionService {
       errors: validationInput.errors || [],
       warnings: validationInput.warnings || []
     };
-    const { additionalValidator, address, chain, edAsWarning, extrinsicType, isTransferAll, transaction } = validation;
+    const { additionalValidator, address, chain, edAsWarning, extrinsicType, feeCustom, feeOption, isTransferAll, transaction } = validation;
 
     // Check duplicate transaction
     validation.errors.push(...this.checkDuplicate(validationInput));
@@ -136,17 +136,19 @@ export default class TransactionService {
             } else {
               const gasLimit = await web3.api.eth.estimateGas(transaction);
 
-              const priority = await calculateGasFeeParams(web3, chainInfo.slug);
+              const id = getId();
+              const feeInfo = await this.state.feeService.subscribeChainFee(id, chain, 'evm') as EvmFeeInfo;
+              const feeCombine = combineEthFee(feeInfo, feeOption, feeCustom as EvmEIP1995FeeOption);
 
-              if (priority.baseGasFee) {
-                const maxFee = priority.options[priority.options.default].maxFeePerGas; // TODO: Need review
+              if (feeCombine.maxFeePerGas) {
+                const maxFee = new BigN(feeCombine.maxFeePerGas); // TODO: Need review
 
                 estimateFee.value = maxFee.multipliedBy(gasLimit).toFixed(0);
               } else {
-                estimateFee.value = new BigN(priority.gasPrice).multipliedBy(gasLimit).toFixed(0);
+                estimateFee.value = new BigN(feeCombine.gasPrice || '0').multipliedBy(gasLimit).toFixed(0);
               }
 
-              estimateFee.tooHigh = priority.busyNetwork;
+              estimateFee.tooHigh = feeInfo.busyNetwork;
             }
           }
         } catch (e) {
@@ -1132,7 +1134,9 @@ export default class TransactionService {
     return emitter;
   }
 
-  private signAndSendSubstrateTransaction ({ address, chain, id, transaction, url }: SWTransaction): TransactionEmitter {
+  private signAndSendSubstrateTransaction ({ address, chain, feeCustom, id, transaction, url }: SWTransaction): TransactionEmitter {
+    console.log(feeCustom);
+    const tip = (feeCustom as SubstrateTipInfo)?.tip || '0';
     const emitter = new EventEmitter<TransactionEventMap>();
     const eventData: TransactionEventResponse = {
       id,
@@ -1152,7 +1156,8 @@ export default class TransactionService {
               signature: signing.signature
             } as SignerResult;
           }
-        } as Signer
+        } as Signer,
+        tip
       }).then((rs) => {
         resolve(rs);
       }).catch(reject);

@@ -1500,12 +1500,12 @@ export default class KoniState {
         transaction.maxPriorityFeePerGas = priority.options[priority.options.default].maxPriorityFeePerGas.toString();
         transaction.maxFeePerGas = priority.options[priority.options.default].maxFeePerGas.toString();
 
-        const maxFee = priority.options[priority.options.default].maxFeePerGas;
+        const maxFee = new BigN(priority.options[priority.options.default].maxFeePerGas);
 
         estimateGas = maxFee.multipliedBy(transaction.gas).toFixed(0);
       } else {
         transaction.gasPrice = priority.gasPrice;
-        estimateGas = new BigN(priority.gasPrice).multipliedBy(transaction.gas).toFixed(0);
+        estimateGas = new BigN(priority.gasPrice || '0').multipliedBy(transaction.gas).toFixed(0);
       }
     }
 
