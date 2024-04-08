@@ -114,9 +114,14 @@ export const combineEthFee = (feeInfo: EvmFeeInfo, feeOptions?: FeeOption, feeCu
     maxPriorityFeePerGas = feeInfo.options?.[feeInfo.options.default].maxPriorityFeePerGas;
   }
 
-  return {
-    gasPrice: feeInfo.gasPrice,
-    maxFeePerGas,
-    maxPriorityFeePerGas
-  };
+  if (feeInfo.gasPrice) {
+    return {
+      gasPrice: feeInfo.gasPrice
+    };
+  } else {
+    return {
+      maxFeePerGas,
+      maxPriorityFeePerGas
+    };
+  }
 };

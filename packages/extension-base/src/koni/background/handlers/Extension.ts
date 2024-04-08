@@ -21,6 +21,7 @@ import { getBondingExtrinsic, getCancelWithdrawalExtrinsic, getClaimRewardExtrin
 import { getTuringCancelCompoundingExtrinsic, getTuringCompoundExtrinsic } from '@subwallet/extension-base/koni/api/staking/bonding/paraChain';
 import { getPoolingBondingExtrinsic, getPoolingUnbondingExtrinsic, validatePoolBondingCondition, validateRelayUnbondingCondition } from '@subwallet/extension-base/koni/api/staking/bonding/relayChain';
 import { getERC20TransactionObject, getERC721Transaction, getEVMTransactionObject } from '@subwallet/extension-base/koni/api/tokens/evm/transfer';
+import { getERC20Contract } from '@subwallet/extension-base/koni/api/tokens/evm/web3';
 import { getPSP34TransferExtrinsic } from '@subwallet/extension-base/koni/api/tokens/wasm';
 import { createXcmExtrinsic } from '@subwallet/extension-base/koni/api/xcm';
 import { YIELD_EXTRINSIC_TYPES } from '@subwallet/extension-base/koni/api/yield/helper/utils';
@@ -2226,13 +2227,32 @@ export default class KoniExtension {
         } else {
           if (_isChainEvmCompatible(chainInfo) && _isTokenTransferredByEvm(tokenInfo)) {
             const web3 = this.#koniState.chainService.getEvmApi(chain);
+            let gasLimit: number;
 
-            const transaction: TransactionConfig = {
-              value: 0,
-              to: '0x0000000000000000000000000000000000000000', // null address
-              from: address
-            };
-            const gasLimit = await web3.api.eth.estimateGas(transaction);
+            try {
+              if (_isNativeToken(tokenInfo)) {
+                const transaction: TransactionConfig = {
+                  value: 0,
+                  to: '0x0000000000000000000000000000000000000000', // null address
+                  from: address
+                };
+
+                gasLimit = await web3.api.eth.estimateGas(transaction);
+              } else {
+                const contractAddress = _getContractAddressOfToken(tokenInfo);
+                const erc20Contract = getERC20Contract(contractAddress, web3);
+                const address1 = '0xdd718f9Ecaf8f144a3140b79361b5D713D3A6b19';
+                const address2 = '0x40a207109cf531024B55010A1e760199Df0d3a13';
+                const to = address1.toLowerCase() === address.toLowerCase() ? address2 : address1;
+
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
+                gasLimit = await erc20Contract.methods.transfer(to, freeBalance.value).estimateGas({ from: address }) as number;
+              }
+            } catch (e) {
+              console.error(e);
+              gasLimit = 0;
+            }
+
             const _fee = fee as EvmFeeInfo;
             const _feeCustom = feeCustom as EvmEIP1995FeeOption;
             const combineFee = combineEthFee(_fee, _feeOptions, _feeCustom);
