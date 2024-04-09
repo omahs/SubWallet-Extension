@@ -962,6 +962,14 @@ export default class TransactionService {
       payload.from = address;
     }
 
+    if (!payload.estimateGas) {
+      if (payload.maxFeePerGas) {
+        payload.estimateGas = new BigN(anyNumberToBN(payload.maxFeePerGas).toNumber()).multipliedBy(payload.gas || '0').toFixed(0);
+      } else {
+        payload.estimateGas = new BigN(anyNumberToBN(payload.gasPrice).toNumber()).multipliedBy(payload.gas || '0').toFixed(0);
+      }
+    }
+
     const isExternal = !!account.isExternal;
     const isInjected = !!account.isInjected;
 
