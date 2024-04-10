@@ -2242,7 +2242,7 @@ export default class KoniExtension {
                 const contractAddress = _getContractAddressOfToken(tokenInfo);
                 const erc20Contract = getERC20Contract(contractAddress, web3);
                 const address1 = '0xdd718f9Ecaf8f144a3140b79361b5D713D3A6b19';
-                const address2 = '0x40a207109cf531024B55010A1e760199Df0d3a13';
+                const address2 = '0x5e10e440FEce4dB0b16a6159A4536efb74d32E9b';
                 const to = address1.toLowerCase() === address.toLowerCase() ? address2 : address1;
 
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
