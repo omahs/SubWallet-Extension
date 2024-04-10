@@ -38,7 +38,7 @@ import { isProposalExpired, isSupportWalletConnectChain, isSupportWalletConnectN
 import { ResultApproveWalletConnectSession, WalletConnectNotSupportRequest, WalletConnectSessionRequest } from '@subwallet/extension-base/services/wallet-connect-service/types';
 import { AccountsStore } from '@subwallet/extension-base/stores';
 import { BalanceJson, BuyServiceInfo, BuyTokenInfo, EarningRewardJson, NominationPoolInfo, OptimalYieldPathParams, RequestEarlyValidateYield, RequestGetYieldPoolTargets, RequestStakeCancelWithdrawal, RequestStakeClaimReward, RequestUnlockDotCheckCanMint, RequestUnlockDotSubscribeMintedData, RequestYieldLeave, RequestYieldStepSubmit, RequestYieldWithdrawal, ResponseGetYieldPoolTargets, ValidateYieldProcessParams, YieldPoolType } from '@subwallet/extension-base/types';
-import { SwapPair, SwapQuoteResponse, SwapRequest, SwapRequestResult, SwapSubmitParams, ValidateSwapProcessParams } from '@subwallet/extension-base/types/swap';
+import { MultiChainSwapPair, SwapPair, SwapQuoteResponse, SwapRequest, SwapRequestResult, SwapSubmitParams, ValidateSwapProcessParams } from '@subwallet/extension-base/types/swap';
 import { BN_ZERO, convertSubjectInfoToAddresses, createTransactionFromRLP, isSameAddress, reformatAddress, signatureToHex, Transaction as QrTransaction, uniqueStringArray } from '@subwallet/extension-base/utils';
 import { parseContractInput, parseEvmRlp } from '@subwallet/extension-base/utils/eth/parseTransaction';
 import { balanceFormatter, formatNumber } from '@subwallet/extension-base/utils/number';
@@ -4323,6 +4323,31 @@ export default class KoniExtension {
     return this.#koniState.swapService.getSwapPairs();
   }
 
+  private async subscribeMultiChainSwapPairs (id: string, port: chrome.runtime.Port): Promise<MultiChainSwapPair[]> {
+    const cb = createSubscription<'pri(swapService.subscribeMultiChainPairs)'>(id, port);
+    let ready = false;
+
+    await this.#koniState.swapService.waitForStarted();
+
+    const callback = (rs: SwapPair[]) => {
+      if (ready) {
+        cb(rs);
+      }
+    };
+
+    const subscription = this.#koniState.swapService.subscribeMultiChainSwapPairs(callback);
+
+    this.createUnsubscriptionHandle(id, subscription.unsubscribe);
+
+    port.onDisconnect.addListener((): void => {
+      this.cancelSubscription(id);
+    });
+
+    ready = true;
+
+    return this.#koniState.swapService.getMultiChainSwapPairs();
+  }
+
   private async handleSwapRequest (request: SwapRequest): Promise<SwapRequestResult> {
     return this.#koniState.swapService.handleSwapRequest(request);
   }
@@ -4932,6 +4957,8 @@ export default class KoniExtension {
         /* Database */
 
         /* Swap service */
+      case 'pri(swapService.subscribeMultiChainPairs)':
+        return this.subscribeMultiChainSwapPairs(id, port);
       case 'pri(swapService.subscribePairs)':
         return this.subscribeSwapPairs(id, port);
       case 'pri(swapService.handleSwapRequest)':

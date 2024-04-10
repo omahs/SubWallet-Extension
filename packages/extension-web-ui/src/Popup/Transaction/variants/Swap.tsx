@@ -80,7 +80,7 @@ const Component = () => {
 
   const { accounts, currentAccount, isAllAccount } = useSelector((state) => state.accountState);
   const assetRegistryMap = useSelector((state) => state.assetRegistry.assetRegistry);
-  const swapPairs = useSelector((state) => state.swap.swapPairs);
+  const swapPairs = useSelector((state) => state.swap.multiChainSwapPairs);
   const priceMap = useSelector((state) => state.price.priceMap);
   const chainInfoMap = useSelector((root) => root.chainStore.chainInfoMap);
   const hasInternalConfirmations = useSelector((state: RootState) => state.requestState.hasInternalConfirmations);
@@ -113,6 +113,8 @@ const Component = () => {
   const onIdle = useCallback(() => {
     !hasInternalConfirmations && !!confirmedTerm && showQuoteArea && setRequestUserInteractToContinue(true);
   }, [confirmedTerm, hasInternalConfirmations, showQuoteArea]);
+
+  console.log(swapPairs);
 
   useIdleTimer({
     onIdle,
@@ -719,13 +721,13 @@ const Component = () => {
 
   const currentPair = useMemo(() => {
     if (fromTokenSlugValue && toTokenSlugValue) {
-      const pairSlug = _parseAssetRefKey(fromTokenSlugValue, toTokenSlugValue);
+      // const pairSlug = _parseAssetRefKey(fromTokenSlugValue, toTokenSlugValue);
 
-      return swapPairs.find((item) => item.slug === pairSlug);
+      // return swapPairs.find((item) => item.slug === pairSlug);
     }
 
     return undefined;
-  }, [fromTokenSlugValue, swapPairs, toTokenSlugValue]);
+  }, [fromTokenSlugValue, toTokenSlugValue]);
 
   const altChain = useMemo(() => {
     if (currentPair) {

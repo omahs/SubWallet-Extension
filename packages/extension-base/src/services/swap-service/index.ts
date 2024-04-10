@@ -12,7 +12,7 @@ import { SwapBaseInterface } from '@subwallet/extension-base/services/swap-servi
 import { ChainflipSwapHandler } from '@subwallet/extension-base/services/swap-service/handler/chainflip-handler';
 import { HydradxHandler } from '@subwallet/extension-base/services/swap-service/handler/hydradx-handler';
 import { DEFAULT_SWAP_FIRST_STEP, getSwapAltToken, MOCK_SWAP_FEE, SWAP_QUOTE_TIMEOUT_MAP } from '@subwallet/extension-base/services/swap-service/utils';
-import { _SUPPORTED_SWAP_PROVIDERS, OptimalSwapPath, OptimalSwapPathParams, QuoteAskResponse, SwapErrorType, SwapPair, SwapProviderId, SwapQuote, SwapQuoteResponse, SwapRequest, SwapRequestResult, SwapStepType, SwapSubmitParams, SwapSubmitStepData, ValidateSwapProcessParams } from '@subwallet/extension-base/types/swap';
+import { _SUPPORTED_SWAP_PROVIDERS, MultiChainSwapPair, OptimalSwapPath, OptimalSwapPathParams, QuoteAskResponse, SwapErrorType, SwapPair, SwapProviderId, SwapQuote, SwapQuoteResponse, SwapRequest, SwapRequestResult, SwapStepType, SwapSubmitParams, SwapSubmitStepData, ValidateSwapProcessParams } from '@subwallet/extension-base/types/swap';
 import { createPromiseHandler, PromiseHandler } from '@subwallet/extension-base/utils';
 import { BehaviorSubject } from 'rxjs';
 
@@ -286,6 +286,34 @@ export class SwapService implements ServiceWithProcessInterface, StoppableServic
             alternativeAsset: getSwapAltToken(fromAsset)
           }
         } as SwapPair;
+      });
+
+      callback(latestData);
+    });
+  }
+
+  public getMultiChainSwapPairs (): MultiChainSwapPair[] {
+    return Object.values(this.chainService.swapRefMap).map((assetRef) => {
+      const fromAsset = this.chainService.getAssetBySlug(assetRef.srcAsset);
+      const toAsset = this.chainService.getAssetBySlug(assetRef.destAsset);
+
+      return {
+        from: fromAsset.multiChainAsset,
+        to: toAsset.multiChainAsset
+      } as MultiChainSwapPair;
+    });
+  }
+
+  public subscribeMultiChainSwapPairs (callback: (pairs: MultiChainSwapPair[]) => void) {
+    return this.chainService.subscribeSwapRefMap().subscribe((refMap) => {
+      const latestData = Object.values(refMap).map((assetRef) => {
+        const fromAsset = this.chainService.getAssetBySlug(assetRef.srcAsset);
+        const toAsset = this.chainService.getAssetBySlug(assetRef.destAsset);
+
+        return {
+          from: fromAsset.multiChainAsset,
+          to: toAsset.multiChainAsset
+        } as MultiChainSwapPair;
       });
 
       callback(latestData);

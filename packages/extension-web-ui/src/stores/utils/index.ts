@@ -9,7 +9,7 @@ import { _ChainApiStatus, _ChainState } from '@subwallet/extension-base/services
 import { SWTransactionResult } from '@subwallet/extension-base/services/transaction-service/types';
 import { WalletConnectNotSupportRequest, WalletConnectSessionRequest } from '@subwallet/extension-base/services/wallet-connect-service/types';
 import { BalanceJson, BuyServiceInfo, BuyTokenInfo, EarningRewardHistoryItem, EarningRewardJson, YieldPoolInfo, YieldPositionInfo } from '@subwallet/extension-base/types';
-import { SwapPair } from '@subwallet/extension-base/types/swap';
+import { MultiChainSwapPair, SwapPair } from '@subwallet/extension-base/types/swap';
 import { addLazy, canDerive, fetchStaticData, isEmptyObject } from '@subwallet/extension-base/utils';
 import { lazySubscribeMessage } from '@subwallet/extension-web-ui/messaging';
 import { store } from '@subwallet/extension-web-ui/stores';
@@ -513,5 +513,10 @@ export const updateSwapPairs = (data: SwapPair[]) => {
   store.dispatch({ type: 'swap/updateSwapPairs', payload: data });
 };
 
+export const updateMultiChainPairs = (data: MultiChainSwapPair[]) => {
+  store.dispatch({ type: 'swap/updateMultiChainPairs', payload: data });
+};
+
 export const subscribeSwapPairs = lazySubscribeMessage('pri(swapService.subscribePairs)', null, updateSwapPairs, updateSwapPairs);
+export const subscribeMultiChainSwapPairs = lazySubscribeMessage('pri(swapService.subscribeMultiChainPairs)', null, updateMultiChainPairs, updateMultiChainPairs);
 /* Swap */

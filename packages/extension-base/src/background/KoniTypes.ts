@@ -11,7 +11,17 @@ import { CrowdloanContributionsResponse } from '@subwallet/extension-base/servic
 import { SWTransactionResponse, SWTransactionResult } from '@subwallet/extension-base/services/transaction-service/types';
 import { WalletConnectNotSupportRequest, WalletConnectSessionRequest } from '@subwallet/extension-base/services/wallet-connect-service/types';
 import { BalanceJson, BuyServiceInfo, BuyTokenInfo, EarningRewardHistoryItem, EarningRewardJson, EarningStatus, HandleYieldStepParams, LeavePoolAdditionalData, NominationPoolInfo, OptimalYieldPath, OptimalYieldPathParams, RequestEarlyValidateYield, RequestGetYieldPoolTargets, RequestStakeCancelWithdrawal, RequestStakeClaimReward, RequestUnlockDotCheckCanMint, RequestUnlockDotSubscribeMintedData, RequestYieldLeave, RequestYieldStepSubmit, RequestYieldWithdrawal, ResponseEarlyValidateYield, ResponseGetYieldPoolTargets, SubmitYieldStepData, TokenApproveData, UnlockDotTransactionNft, UnstakingStatus, ValidateYieldProcessParams, YieldPoolInfo, YieldPositionInfo, YieldValidationStatus } from '@subwallet/extension-base/types';
-import { SwapErrorType, SwapPair, SwapQuoteResponse, SwapRequest, SwapRequestResult, SwapSubmitParams, SwapTxData, ValidateSwapProcessParams } from '@subwallet/extension-base/types/swap';
+import {
+  MultiChainSwapPair,
+  SwapErrorType,
+  SwapPair,
+  SwapQuoteResponse,
+  SwapRequest,
+  SwapRequestResult,
+  SwapSubmitParams,
+  SwapTxData,
+  ValidateSwapProcessParams
+} from '@subwallet/extension-base/types/swap';
 import { InjectedAccount, InjectedAccountWithMeta, MetadataDefBase } from '@subwallet/extension-inject/types';
 import { KeyringPair$Json, KeyringPair$Meta } from '@subwallet/keyring/types';
 import { KeyringOptions } from '@subwallet/ui-keyring/options/types';
@@ -2518,6 +2528,7 @@ export interface KoniRequestSignatures {
   /* Database Service */
 
   /* Swap */
+  'pri(swapService.subscribeMultiChainPairs)': [null, MultiChainSwapPair[], MultiChainSwapPair[]];
   'pri(swapService.subscribePairs)': [null, SwapPair[], SwapPair[]];
   'pri(swapService.handleSwapRequest)': [SwapRequest, SwapRequestResult];
   'pri(swapService.handleSwapStep)': [SwapSubmitParams, SWTransactionResponse];

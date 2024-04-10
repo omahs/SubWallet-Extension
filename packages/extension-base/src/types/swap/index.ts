@@ -11,6 +11,11 @@ import BigN from 'bignumber.js';
 // core
 export type SwapRate = number;
 
+export interface MultiChainSwapPair {
+  from: string;
+  to: string;
+}
+
 export interface SwapPair {
   slug: string;
   from: string;
