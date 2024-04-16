@@ -67,13 +67,17 @@ export enum SwapProviderId {
   CHAIN_FLIP_MAINNET = 'CHAIN_FLIP_MAINNET',
   HYDRADX_MAINNET = 'HYDRADX_MAINNET',
   HYDRADX_TESTNET = 'HYDRADX_TESTNET',
+  STELLASWAP_MAINNET = 'STELLASWAP_MAINNET',
+  STELLASWAP_TESTNET = 'STELLASWAP_TESTNET'
 }
 
 export const _SUPPORTED_SWAP_PROVIDERS: SwapProviderId[] = [
   SwapProviderId.CHAIN_FLIP_TESTNET,
   SwapProviderId.CHAIN_FLIP_MAINNET,
   SwapProviderId.HYDRADX_MAINNET,
-  SwapProviderId.HYDRADX_TESTNET
+  SwapProviderId.HYDRADX_TESTNET,
+  SwapProviderId.STELLASWAP_TESTNET,
+  SwapProviderId.STELLASWAP_MAINNET
 ];
 
 export interface SwapProvider {
@@ -111,7 +115,7 @@ export interface OptimalSwapPath { // path means the steps to complete the swap,
   steps: SwapStepDetail[];
 }
 
-export type SwapTxData = ChainflipSwapTxData | HydradxSwapTxData; // todo: will be more
+export type SwapTxData = ChainflipSwapTxData | HydradxSwapTxData | SwapBaseTxData; // todo: will be more
 
 export interface SwapBaseTxData {
   provider: SwapProvider;
@@ -143,6 +147,10 @@ export interface ChainflipPreValidationMetadata {
 
 export interface HydradxPreValidationMetadata {
   maxSwap: AmountData;
+  chain: _ChainInfo;
+}
+
+export interface StellaswapPreValidationMetadata {
   chain: _ChainInfo;
 }
 
@@ -196,7 +204,7 @@ export interface OptimalSwapPathParams {
 
 export interface SwapEarlyValidation {
   error?: SwapErrorType;
-  metadata?: ChainflipPreValidationMetadata | HydradxPreValidationMetadata;
+  metadata?: ChainflipPreValidationMetadata | HydradxPreValidationMetadata | StellaswapPreValidationMetadata;
 }
 
 export interface ValidateSwapProcessParams {
