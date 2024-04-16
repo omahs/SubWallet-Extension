@@ -220,7 +220,7 @@ export class StellaswapHandler implements SwapBaseInterface {
     const pair = quote.pair;
     const fromAsset = this.chainService.getAssetBySlug(pair.from);
     const chainInfo = this.chainService.getChainInfoByKey(this.chain);
-    const transactionConfig = await getEVMTransactionObject(chainInfo, address, '0xeb70c2E0c0DCD6A6187D75b55AFc25b3B3ebE5a2', quote.fromAmount, false, this.chainService.getEvmApi(chainInfo.slug));
+    const transactionConfig = await getEVMTransactionObject(chainInfo, address, '0x30Fa101871dE933f98cE55e3448C3f8A2015d09b', quote.fromAmount, false, this.chainService.getEvmApi(chainInfo.slug));
 
     const txData: SwapBaseTxData = {
       address,
