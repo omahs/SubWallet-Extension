@@ -31,7 +31,7 @@ const HYDRADX_TESTNET_SUBWALLET_REFERRAL_ACCOUNT = '7LCt6dFqtxzdKVB2648jWW9d85do
 export class HydradxHandler implements SwapBaseInterface {
   private swapBaseHandler: SwapBaseHandler;
   private tradeRouter: TradeRouter | undefined;
-  private readonly isTestnet: boolean;
+  isTestnet: boolean;
   public isReady = false;
 
   constructor (chainService: ChainService, balanceService: BalanceService, isTestnet = true) { // todo: pass in baseHandler from service

@@ -28,6 +28,7 @@ export interface SwapBaseInterface {
   handleSwapProcess: (params: SwapSubmitParams) => Promise<SwapSubmitStepData>;
   handleSubmitStep: (params: SwapSubmitParams) => Promise<SwapSubmitStepData>;
 
+  isTestnet: boolean;
   isReady?: boolean;
   init?: () => Promise<void>;
 }

@@ -40,7 +40,7 @@ enum CHAINFLIP_QUOTE_ERROR {
 
 export class ChainflipSwapHandler implements SwapBaseInterface {
   private swapSdk: SwapSDK;
-  private readonly isTestnet: boolean;
+  isTestnet: boolean;
   private swapBaseHandler: SwapBaseHandler;
 
   constructor (chainService: ChainService, balanceService: BalanceService, isTestnet = true) {
