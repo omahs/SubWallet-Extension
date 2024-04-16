@@ -170,7 +170,7 @@ export class SwapService implements ServiceWithProcessInterface, StoppableServic
         case SwapProviderId.STELLASWAP_TESTNET:
           this.handlers[providerId] = new StellaswapHandler(this.chainService, this.state.balanceService);
           break;
-        case SwapProviderId.STELLASWAP_MAINNET:
+        case SwapProviderId.STELLASWAP:
           this.handlers[providerId] = new StellaswapHandler(this.chainService, this.state.balanceService, false);
           break;
         default:
