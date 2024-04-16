@@ -6287,12 +6287,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@stellaswap/swap-sdk@npm:^0.0.8":
-  version: 0.0.8
-  resolution: "@stellaswap/swap-sdk@npm:0.0.8"
+"@stellaswap/swap-sdk@npm:^0.0.11":
+  version: 0.0.11
+  resolution: "@stellaswap/swap-sdk@npm:0.0.11"
   dependencies:
     "@uniswap/permit2-sdk": ^1.2.0
-  checksum: 775adcd26a7931f6a12c9155ea12c4e95f1283ce538a661f0d174bbc1fb557846f559a12865e19650abcdf1fbde9f6ed26422458df7fae7787d06789a1fcc40f
+  checksum: afcf907637018920e0867a72ee4da777b5e6d7eb5b85989539a6214201ac15f843619884728e37073a8d1434c8040a295abca0f9716cddd9044d42e5b9b23181
   languageName: node
   linkType: hard
 
@@ -6406,7 +6406,7 @@ __metadata:
     "@polkadot/util-crypto": ^12.6.2
     "@reduxjs/toolkit": ^1.9.1
     "@sora-substrate/type-definitions": ^1.17.7
-    "@stellaswap/swap-sdk": ^0.0.8
+    "@stellaswap/swap-sdk": ^0.0.11
     "@substrate/connect": ^0.7.26
     "@subwallet/chain-list": 0.2.56-beta.0
     "@subwallet/extension-base": ^1.1.55-0
