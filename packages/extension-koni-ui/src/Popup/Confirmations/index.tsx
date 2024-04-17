@@ -213,10 +213,10 @@ const Component = function ({ className }: Props) {
           return t('Redeem stDOT confirm');
         case ExtrinsicType.UNSTAKE_VDOT:
           return t('Unstake vDOT confirm');
-        case ExtrinsicType.UNSTAKE_VMANTA:
-          return t('Unstake vMANTA confirm');
         case ExtrinsicType.UNSTAKE_LDOT:
           return t('Unstake LDOT confirm');
+        case ExtrinsicType.UNSTAKE_VMANTA:
+          return t('Unstake vMANTA confirm');
         case ExtrinsicType.UNSTAKE_SDOT:
           return t('Unstake sDOT confirm');
         case ExtrinsicType.UNSTAKE_STDOT:
@@ -225,12 +225,14 @@ const Component = function ({ className }: Props) {
           return t('Unstake stDOT confirm');
         case ExtrinsicType.STAKING_COMPOUNDING:
           return t('Stake compound confirm');
-        case ExtrinsicType.STAKING_CANCEL_COMPOUNDING:
-          return t('Cancel compound confirm');
         case ExtrinsicType.TOKEN_APPROVE:
           return t('Token approve');
+        case ExtrinsicType.STAKING_CANCEL_COMPOUNDING:
+          return t('Cancel compound confirm');
         case ExtrinsicType.SWAP:
           return t('Swap confirmation');
+        case ExtrinsicType.STAKING_SET_CLAIM_PERMISSIONLESS:
+          return t('Auto claim confirmation');
         case ExtrinsicType.CROWDLOAN:
         case ExtrinsicType.EVM_EXECUTE:
         case ExtrinsicType.UNKNOWN:

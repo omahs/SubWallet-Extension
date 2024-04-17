@@ -2,25 +2,30 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { NotificationType } from '@subwallet/extension-base/background/KoniTypes';
-import { EarningRewardHistoryItem, SpecialYieldPoolInfo, SpecialYieldPositionInfo, YieldPoolInfo, YieldPoolType, YieldPositionInfo } from '@subwallet/extension-base/types';
+import { EarningRewardHistoryItem, NominationYieldPositionInfo, PalletNominationPoolsClaimPermission, SpecialYieldPoolInfo, SpecialYieldPositionInfo, YieldPoolInfo, YieldPoolType, YieldPositionInfo } from '@subwallet/extension-base/types';
 import { AlertModal, Layout, PageWrapper } from '@subwallet/extension-koni-ui/components';
-import { BN_TEN, BN_ZERO, DEFAULT_EARN_PARAMS, DEFAULT_UN_STAKE_PARAMS, EARN_TRANSACTION, UN_STAKE_TRANSACTION } from '@subwallet/extension-koni-ui/constants';
+import { EarningManageClaimPermissions } from '@subwallet/extension-koni-ui/components/Modal/Earning';
+import { BN_TEN, BN_ZERO, DEFAULT_EARN_PARAMS, DEFAULT_UN_STAKE_PARAMS, EARN_TRANSACTION, EARNING_MANAGE_AUTO_CLAIM_MODAL, SET_CLAIM_PERMISSIONS, UN_STAKE_TRANSACTION } from '@subwallet/extension-koni-ui/constants';
 import { DataContext } from '@subwallet/extension-koni-ui/contexts/DataContext';
 import { useAlert, useSelector, useTranslation, useYieldPositionDetail } from '@subwallet/extension-koni-ui/hooks';
+import { yieldSubmitSetClaimPermissions } from '@subwallet/extension-koni-ui/messaging';
 import { AccountAndNominationInfoPart } from '@subwallet/extension-koni-ui/Popup/Home/Earning/EarningPositionDetail/AccountAndNominationInfoPart';
 import { EarningInfoPart } from '@subwallet/extension-koni-ui/Popup/Home/Earning/EarningPositionDetail/EarningInfoPart';
 import { RewardInfoPart } from '@subwallet/extension-koni-ui/Popup/Home/Earning/EarningPositionDetail/RewardInfoPart';
 import { WithdrawInfoPart } from '@subwallet/extension-koni-ui/Popup/Home/Earning/EarningPositionDetail/WithdrawInfoPart';
+import { Theme } from '@subwallet/extension-koni-ui/themes';
 import { EarningEntryParam, EarningEntryView, EarningPositionDetailParam, ThemeProps } from '@subwallet/extension-koni-ui/types';
-import { isAccountAll } from '@subwallet/extension-koni-ui/utils';
-import { Button, ButtonProps, Icon, Number } from '@subwallet/react-ui';
+import { getBannerButtonIcon, isAccountAll } from '@subwallet/extension-koni-ui/utils';
+import { BackgroundIcon, Button, ButtonProps, Icon, ModalContext, Number, Switch, Tag, Web3Block } from '@subwallet/react-ui';
 import BigN from 'bignumber.js';
 import CN from 'classnames';
-import { MinusCircle, Plus, PlusCircle } from 'phosphor-react';
+import { GearSix, Info, MinusCircle, Plus, PlusCircle } from 'phosphor-react';
 import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 import { useLocalStorage } from 'usehooks-ts';
+
+import useNotification from '../../../../hooks/common/useNotification';
 
 type Props = ThemeProps;
 
@@ -32,6 +37,7 @@ type ComponentProp = {
 }
 
 const alertModalId = 'earn-position-detail-alert-modal';
+const manageAutoClaimModalId = EARNING_MANAGE_AUTO_CLAIM_MODAL;
 
 function Component ({ compound,
   list,
@@ -45,11 +51,14 @@ function Component ({ compound,
   const { assetRegistry } = useSelector((state) => state.assetRegistry);
   const { priceMap } = useSelector((state) => state.price);
   const { currentAccount, isAllAccount } = useSelector((state) => state.accountState);
-
+  const [stateAutoClaimManage, setAutoStateClaimManage] = useState<PalletNominationPoolsClaimPermission | undefined>((compound as NominationYieldPositionInfo).claimPermissionStatus);
   const [, setEarnStorage] = useLocalStorage(EARN_TRANSACTION, DEFAULT_EARN_PARAMS);
   const [, setUnStakeStorage] = useLocalStorage(UN_STAKE_TRANSACTION, DEFAULT_UN_STAKE_PARAMS);
-
+  const { activeModal } = useContext(ModalContext);
+  const { token } = useTheme() as Theme;
   const { alertProps, closeAlert, openAlert } = useAlert(alertModalId);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const notify = useNotification();
 
   const inputAsset = useMemo(() => {
     const inputSlug = poolInfo.metadata.inputAsset;
@@ -146,6 +155,65 @@ function Component ({ compound,
     } as EarningEntryParam });
   }, [navigate]);
 
+  const openManageAutoClaimModal = useCallback(() => {
+    activeModal(manageAutoClaimModalId);
+  }, [activeModal]);
+
+  const handleEnableAutoCompoundSwitch = useCallback((checked: boolean, event: React.MouseEvent<HTMLButtonElement>) => {
+    setIsLoading(true);
+    const { address, slug } = compound;
+    const claimPermissionless = checked ? PalletNominationPoolsClaimPermission.PERMISSIONLESS_COMPOUND : PalletNominationPoolsClaimPermission.PERMISSIONED;
+
+    yieldSubmitSetClaimPermissions({
+      address,
+      slug,
+      claimPermissionless
+    })
+      .then((rs) => {
+        if (rs.errors.length === 0) {
+          setAutoStateClaimManage(claimPermissionless);
+        } else {
+          notify({
+            type: 'error',
+            message: rs.errors[0].message
+          });
+        }
+      })
+      .catch((error) => {
+        console.error(error);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [compound, notify]);
+
+  const handleSetModeAutoCompound = useCallback((mode: PalletNominationPoolsClaimPermission) => {
+    return new Promise((resolve) => {
+      const { address, slug } = compound;
+
+      yieldSubmitSetClaimPermissions({
+        address,
+        slug,
+        claimPermissionless: mode
+      })
+        .then((rs) => {
+          if (rs.errors.length === 0) {
+            setAutoStateClaimManage(mode);
+          } else {
+            notify({
+              type: 'error',
+              message: rs.errors[0].message
+            });
+          }
+
+          resolve(mode);
+        })
+        .catch((error) => {
+          console.error(error);
+        });
+    });
+  }, [compound, notify]);
+
   const subHeaderButtons: ButtonProps[] = useMemo(() => {
     return [
       {
@@ -193,6 +261,68 @@ function Component ({ compound,
             value={convertActiveStake}
           />
         </div>
+        { !!stateAutoClaimManage && (
+          <Web3Block
+            className={'__auto-claim-box'}
+            middleItem={
+              <div className={'__auto-claim-group'}>
+                <div className={'__auto-claim-state-item'}>
+                  <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                    <BackgroundIcon
+                      backgroundColor={token['gold-6']}
+                      iconColor={'white'}
+                      phosphorIcon={getBannerButtonIcon('Coins')}
+                      size='sm'
+                      weight='fill'
+                    />
+                    <div className={'__left-item-label'}>{t('Auto claim rewards')}</div>
+                    <Icon
+                      className={'__left-item-info-icon'}
+                      customSize={'16px'}
+                      phosphorIcon={Info}
+                      weight={'fill'}
+                    />
+                  </div>
+                  <Switch
+                    checked={stateAutoClaimManage !== PalletNominationPoolsClaimPermission.PERMISSIONED}
+                    loading={isLoading}
+                    onClick={handleEnableAutoCompoundSwitch}
+                  />
+                </div>
+                {
+                  stateAutoClaimManage !== PalletNominationPoolsClaimPermission.PERMISSIONED && (
+                    <div className={'__auto-claim-state-item'}>
+                      <Tag
+                        bgType={'default'}
+                        className={CN('__status-auto-claim')}
+                        color={SET_CLAIM_PERMISSIONS[stateAutoClaimManage].bgColor}
+                        icon={(
+                          <Icon
+                            phosphorIcon={getBannerButtonIcon(SET_CLAIM_PERMISSIONS[stateAutoClaimManage].icon)}
+                            weight={'fill'}
+                          />
+                        )}
+                      >
+                        {t(SET_CLAIM_PERMISSIONS[stateAutoClaimManage].title)}
+                      </Tag>
+                      <div
+                        className={'__manage-auto-compound-box'}
+                        onClick={openManageAutoClaimModal}
+                      >
+                        <Icon
+                          customSize={'20px'}
+                          iconColor={'#A6A6A6'}
+                          phosphorIcon={GearSix}
+                        />
+                        <span className={'__manage-auto-compound-label'}>
+                          {t('Manage auto claim')}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+              </div>}
+          />
+        )}
 
         <RewardInfoPart
           className={'__reward-info-part'}
@@ -268,6 +398,11 @@ function Component ({ compound,
           />
         )
       }
+
+      {stateAutoClaimManage && <EarningManageClaimPermissions
+        currentMode={stateAutoClaimManage}
+        onSubmit={handleSetModeAutoCompound}
+      />}
     </>
   );
 }
@@ -380,6 +515,60 @@ const EarningPositionDetail = styled(Wrapper)<Props>(({ theme: { token } }: Prop
   '.__transaction-buttons': {
     display: 'flex',
     gap: token.sizeSM
+  },
+
+  '.__auto-claim-box': {
+    backgroundColor: token.colorBgSecondary,
+    borderRadius: 8,
+    justifyContent: 'space-between',
+    transition: 'height .3s ease-in-out'
+  },
+
+  '.ant-web3-block': {
+    padding: token.paddingSM,
+    transition: 'height .5s ease-in-out',
+    marginBottom: token.marginSM
+  },
+
+  '.__auto-claim-state-item': {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+
+  '.__auto-claim-group': {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: token.sizeXXS
+  },
+
+  '.__manage-auto-compound-box': {
+    display: 'flex',
+    gap: token.sizeXS,
+    alignItems: 'center',
+    height: 40,
+    transition: 'opacity .3s ease-in-out',
+
+    '&:hover': {
+      opacity: 0.8
+    }
+  },
+
+  '.__manage-auto-compound-label': {
+    fontWeight: token.fontWeightStrong,
+    lineHeight: token.lineHeightHeading6,
+    color: token.colorTextLight3
+  },
+
+  '.__left-item-label': {
+    fontWeight: token.fontWeightStrong,
+    lineHeight: token.lineHeightHeading5,
+    fontSize: token.fontSizeHeading5,
+    marginLeft: token.marginXS
+  },
+
+  '.-row-last': {
+    marginBottom: -token.marginSM
   }
 }));
 

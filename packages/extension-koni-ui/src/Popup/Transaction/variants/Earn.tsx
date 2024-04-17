@@ -5,13 +5,13 @@ import { ExtrinsicType, NotificationType } from '@subwallet/extension-base/backg
 import { _getAssetDecimals, _getAssetSymbol, _getSubstrateGenesisHash, _isChainEvmCompatible } from '@subwallet/extension-base/services/chain-service/utils';
 import { isLendingPool, isLiquidPool } from '@subwallet/extension-base/services/earning-service/utils';
 import { SWTransactionResponse } from '@subwallet/extension-base/services/transaction-service/types';
-import { NominationPoolInfo, OptimalYieldPath, OptimalYieldPathParams, SubmitJoinNativeStaking, SubmitJoinNominationPool, SubmitYieldJoinData, ValidatorInfo, YieldPoolType, YieldStepType } from '@subwallet/extension-base/types';
+import { NominationPoolInfo, OptimalYieldPath, OptimalYieldPathParams, PalletNominationPoolsClaimPermission, SubmitJoinNativeStaking, SubmitJoinNominationPool, SubmitYieldJoinData, ValidatorInfo, YieldPoolType, YieldStepType } from '@subwallet/extension-base/types';
 import { addLazy } from '@subwallet/extension-base/utils';
 import { AccountSelector, AlertBox, AmountInput, EarningPoolSelector, EarningValidatorSelector, HiddenInput, InfoIcon, LoadingScreen, MetaInfo } from '@subwallet/extension-koni-ui/components';
 import { EarningProcessItem } from '@subwallet/extension-koni-ui/components/Earning';
 import { getInputValuesFromString } from '@subwallet/extension-koni-ui/components/Field/AmountInput';
-import { EarningInstructionModal } from '@subwallet/extension-koni-ui/components/Modal/Earning';
-import { BN_ZERO, EARNING_INSTRUCTION_MODAL, STAKE_ALERT_DATA } from '@subwallet/extension-koni-ui/constants';
+import { EarningInstructionModal, EarningManageClaimPermissions } from '@subwallet/extension-koni-ui/components/Modal/Earning';
+import { BN_ZERO, EARNING_INSTRUCTION_MODAL, EARNING_MANAGE_AUTO_CLAIM_MODAL, SET_CLAIM_PERMISSIONS, STAKE_ALERT_DATA } from '@subwallet/extension-koni-ui/constants';
 import { useChainConnection, useFetchChainState, useGetBalance, useGetNativeTokenSlug, useInitValidateTransaction, useNotification, usePreCheckAction, useRestoreTransaction, useSelector, useTransactionContext, useWatchTransaction, useYieldPositionDetail } from '@subwallet/extension-koni-ui/hooks';
 import { insufficientMessages } from '@subwallet/extension-koni-ui/hooks/transaction/useHandleSubmitTransaction';
 import { fetchPoolTarget, getOptimalYieldPath, submitJoinYieldPool, validateYieldProcess } from '@subwallet/extension-koni-ui/messaging';
@@ -19,11 +19,11 @@ import { unlockDotCheckCanMint } from '@subwallet/extension-koni-ui/messaging/ca
 import { DEFAULT_YIELD_PROCESS, EarningActionType, earningReducer } from '@subwallet/extension-koni-ui/reducer';
 import { store } from '@subwallet/extension-koni-ui/stores';
 import { EarnParams, FormCallbacks, FormFieldData, ThemeProps } from '@subwallet/extension-koni-ui/types';
-import { convertFieldToObject, isAccountAll, parseNominations, reformatAddress, simpleCheckForm } from '@subwallet/extension-koni-ui/utils';
-import { ActivityIndicator, Button, ButtonProps, Form, Icon, ModalContext, Number } from '@subwallet/react-ui';
+import { convertFieldToObject, getBannerButtonIcon, isAccountAll, parseNominations, reformatAddress, simpleCheckForm } from '@subwallet/extension-koni-ui/utils';
+import { ActivityIndicator, Button, ButtonProps, Form, Icon, ModalContext, Number, Switch, Tag, Web3Block } from '@subwallet/react-ui';
 import BigN from 'bignumber.js';
 import CN from 'classnames';
-import { CheckCircle, PlusCircle } from 'phosphor-react';
+import { CheckCircle, GearSix, Info, PlusCircle } from 'phosphor-react';
 import React, { useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -38,7 +38,7 @@ type Props = ThemeProps;
 const hideFields: Array<keyof EarnParams> = ['slug', 'chain', 'asset'];
 const validateFields: Array<keyof EarnParams> = ['from'];
 const loadingStepPromiseKey = 'earning.step.loading';
-
+const manageAutoClaimModalId = EARNING_MANAGE_AUTO_CLAIM_MODAL;
 const instructionModalId = EARNING_INSTRUCTION_MODAL;
 
 // Not enough balance to xcm;
@@ -101,6 +101,7 @@ const Component = () => {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [checkMintLoading, setCheckMintLoading] = useState(false);
   const [isFormInvalid, setIsFormInvalid] = useState(true);
+  const [stateAutoClaimManage, setAutoStateClaimManage] = useState<PalletNominationPoolsClaimPermission>(PalletNominationPoolsClaimPermission.PERMISSIONED);
 
   const chainState = useFetchChainState(poolInfo?.chain || '');
 
@@ -349,6 +350,10 @@ const Component = () => {
     [amountValue, closeAlert, handleDataForInsufficientAlert, nativeTokenBalance.value, notify, openAlert, t]
   );
 
+  const openManageAutoClaimModal = useCallback(() => {
+    activeModal(manageAutoClaimModalId);
+  }, [activeModal]);
+
   const onSuccess = useCallback(
     (lastStep: boolean, needRollback: boolean): ((rs: SWTransactionResponse) => boolean) => {
       return (rs: SWTransactionResponse): boolean => {
@@ -418,7 +423,8 @@ const Component = () => {
             slug: slug,
             address: from,
             amount: _currentAmount,
-            selectedPool
+            selectedPool,
+            claimPermissions: stateAutoClaimManage
           } as SubmitJoinNominationPool;
         } else {
           return {
@@ -447,6 +453,8 @@ const Component = () => {
       const isLastStep = step === processState.steps.length - 1;
       const needRollback = step === 1;
       const data = getData(step);
+
+      console.log('data', data);
 
       try {
         if (isFirstStep) {
@@ -503,7 +511,7 @@ const Component = () => {
           setSubmitLoading(false);
         });
     }, 300);
-  }, [currentStep, onError, onSuccess, poolInfo, poolTargets, processState.feeStructure, processState.steps]);
+  }, [currentStep, onError, onSuccess, poolInfo, poolTargets, processState.feeStructure, processState.steps, stateAutoClaimManage]);
 
   const renderMetaInfo = useCallback(() => {
     const value = amountValue ? parseFloat(amountValue) / 10 ** assetDecimals : 0;
@@ -645,6 +653,17 @@ const Component = () => {
 
     return '';
   }, [chainAsset, poolInfo]);
+
+  const handleSetModeAutoCompound = useCallback((mode: PalletNominationPoolsClaimPermission) => {
+    return new Promise((resolve) => {
+      setAutoStateClaimManage(mode);
+      resolve(mode);
+    });
+  }, []);
+
+  const handleEnableAutoCompoundSwitch = useCallback((checked: boolean, event: React.MouseEvent<HTMLButtonElement>) => {
+    setAutoStateClaimManage(checked ? PalletNominationPoolsClaimPermission.PERMISSIONLESS_COMPOUND : PalletNominationPoolsClaimPermission.PERMISSIONED);
+  }, []);
 
   useEffect(() => {
     if (poolChain) {
@@ -971,19 +990,73 @@ const Component = () => {
                 </div>
 
                 {poolType === YieldPoolType.NOMINATION_POOL && (
-                  <Form.Item
-                    name={'target'}
-                  >
-                    <EarningPoolSelector
-                      chain={poolChain}
-                      disabled={submitLoading}
-                      from={fromValue}
-                      label={t('Pool')}
-                      loading={targetLoading}
-                      setForceFetchValidator={setForceFetchValidator}
-                      slug={slug}
+                  <>
+                    <Form.Item
+                      name={'target'}
+                    >
+                      <EarningPoolSelector
+                        chain={poolChain}
+                        disabled={submitLoading}
+                        from={fromValue}
+                        label={t('Pool')}
+                        loading={targetLoading}
+                        setForceFetchValidator={setForceFetchValidator}
+                        slug={slug}
+                      />
+                    </Form.Item>
+                    <Web3Block
+                      className={'__auto-claim-box'}
+                      middleItem={
+                        <div className={'__auto-claim-group'}>
+                          <div className={'__auto-claim-state-item'}>
+                            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                              <div className={'__left-item-label'}>{t('Auto claim rewards')}</div>
+                              <Icon
+                                className={'__left-item-info-icon'}
+                                customSize={'16px'}
+                                phosphorIcon={Info}
+                                weight={'fill'}
+                              />
+                            </div>
+                            <Switch
+                              checked={stateAutoClaimManage !== PalletNominationPoolsClaimPermission.PERMISSIONED}
+                              onClick={handleEnableAutoCompoundSwitch}
+                            />
+                          </div>
+                          {
+                            stateAutoClaimManage !== PalletNominationPoolsClaimPermission.PERMISSIONED && (
+                              <div className={CN('__auto-claim-state-item', '-row-last')}>
+                                <Tag
+                                  bgType={'default'}
+                                  className={CN('__status-auto-claim')}
+                                  color={SET_CLAIM_PERMISSIONS[stateAutoClaimManage].bgColor}
+                                  icon={(
+                                    <Icon
+                                      phosphorIcon={getBannerButtonIcon(SET_CLAIM_PERMISSIONS[stateAutoClaimManage].icon)}
+                                      weight={'fill'}
+                                    />
+                                  )}
+                                >
+                                  {t(SET_CLAIM_PERMISSIONS[stateAutoClaimManage].title)}
+                                </Tag>
+                                <div
+                                  className={'__manage-auto-compound-box'}
+                                  onClick={openManageAutoClaimModal}
+                                >
+                                  <Icon
+                                    customSize={'20px'}
+                                    iconColor={'#A6A6A6'}
+                                    phosphorIcon={GearSix}
+                                  />
+                                  <span className={'__manage-auto-compound-label'}>
+                                    {t('Manage auto claim')}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                        </div>}
                     />
-                  </Form.Item>
+                  </>
                 )}
 
                 {poolType === YieldPoolType.NATIVE_STAKING && (
@@ -1036,6 +1109,10 @@ const Component = () => {
         onCancel={onCancelInstructionModal}
         openAlert={openAlert}
         slug={slug}
+      />
+      <EarningManageClaimPermissions
+        currentMode={stateAutoClaimManage}
+        onSubmit={handleSetModeAutoCompound}
       />
     </>
   );
@@ -1090,6 +1167,58 @@ const Earn = styled(Wrapper)<Props>(({ theme: { token } }: Props) => {
 
     '.__alert-box': {
       marginTop: token.marginSM
+    },
+
+    '.__auto-claim-box': {
+      backgroundColor: token.colorBgSecondary,
+      borderRadius: 8,
+      justifyContent: 'space-between',
+      transition: 'height .3s ease-in-out'
+    },
+
+    '.ant-web3-block': {
+      padding: token.paddingSM,
+      transition: 'height .5s ease-in-out'
+    },
+
+    '.__auto-claim-state-item': {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center'
+    },
+
+    '.__auto-claim-group': {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: token.sizeXXS
+    },
+
+    '.__manage-auto-compound-box': {
+      display: 'flex',
+      gap: token.sizeXS,
+      alignItems: 'center',
+      height: 40,
+      transition: 'opacity .3s ease-in-out',
+
+      '&:hover': {
+        opacity: 0.8
+      }
+    },
+
+    '.__manage-auto-compound-label': {
+      fontWeight: token.fontWeightStrong,
+      lineHeight: token.lineHeightHeading6,
+      color: token.colorTextLight3
+    },
+
+    '.__left-item-label': {
+      fontWeight: token.fontWeightStrong,
+      lineHeight: token.lineHeightHeading5,
+      fontSize: token.fontSizeHeading5
+    },
+
+    '.-row-last': {
+      marginBottom: -token.marginSM
     }
   };
 });
