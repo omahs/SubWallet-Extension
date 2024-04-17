@@ -12,6 +12,7 @@ import { SWTransactionResponse, SWTransactionResult } from '@subwallet/extension
 import { WalletConnectNotSupportRequest, WalletConnectSessionRequest } from '@subwallet/extension-base/services/wallet-connect-service/types';
 import { BalanceJson, BuyServiceInfo, BuyTokenInfo, EarningRewardHistoryItem, EarningRewardJson, EarningStatus, HandleYieldStepParams, LeavePoolAdditionalData, NominationPoolInfo, OptimalYieldPath, OptimalYieldPathParams, RequestEarlyValidateYield, RequestGetYieldPoolTargets, RequestStakeCancelWithdrawal, RequestStakeClaimReward, RequestUnlockDotCheckCanMint, RequestUnlockDotSubscribeMintedData, RequestYieldLeave, RequestYieldStepSubmit, RequestYieldWithdrawal, ResponseEarlyValidateYield, ResponseGetYieldPoolTargets, SubmitYieldStepData, TokenApproveData, UnlockDotTransactionNft, UnstakingStatus, ValidateYieldProcessParams, YieldPoolInfo, YieldPositionInfo, YieldValidationStatus } from '@subwallet/extension-base/types';
 import { SwapErrorType, SwapPair, SwapQuoteResponse, SwapRequest, SwapRequestResult, SwapSubmitParams, SwapTxData, ValidateSwapProcessParams } from '@subwallet/extension-base/types/swap';
+import { BalanceJson, BuyServiceInfo, BuyTokenInfo, EarningRewardHistoryItem, EarningRewardJson, EarningStatus, HandleYieldStepParams, LeavePoolAdditionalData, NominationPoolInfo, OptimalYieldPath, OptimalYieldPathParams, RequestEarlyValidateYield, RequestGetYieldPoolTargets, RequestSetClaimPermissionless, RequestStakeCancelWithdrawal, RequestStakeClaimReward, RequestUnlockDotCheckCanMint, RequestUnlockDotSubscribeMintedData, RequestYieldLeave, RequestYieldStepSubmit, RequestYieldWithdrawal, ResponseEarlyValidateYield, ResponseGetYieldPoolTargets, SubmitYieldStepData, TokenApproveData, UnlockDotTransactionNft, UnstakingStatus, ValidateYieldProcessParams, YieldPoolInfo, YieldPositionInfo, YieldValidationStatus } from '@subwallet/extension-base/types';
 import { InjectedAccount, InjectedAccountWithMeta, MetadataDefBase } from '@subwallet/extension-inject/types';
 import { KeyringPair$Json, KeyringPair$Meta } from '@subwallet/keyring/types';
 import { KeyringOptions } from '@subwallet/ui-keyring/options/types';
@@ -480,6 +481,7 @@ export enum ExtrinsicType {
   STAKING_COMPOUNDING = 'staking.compounding',
   STAKING_CANCEL_COMPOUNDING = 'staking.cancel_compounding',
   STAKING_CANCEL_UNSTAKE = 'staking.cancel_unstake',
+  STAKING_SET_CLAIM_PERMISSIONLESS = 'staking.set_claim_permissionless',
 
   JOIN_YIELD_POOL = 'earn.join_pool', // TODO: review this
   MINT_VDOT = 'earn.mint_vdot',
@@ -533,6 +535,7 @@ export interface ExtrinsicDataTypeMap {
   [ExtrinsicType.STAKING_CANCEL_COMPOUNDING]: RequestTuringCancelStakeCompound,
   [ExtrinsicType.STAKING_CANCEL_UNSTAKE]: RequestStakeCancelWithdrawal,
   [ExtrinsicType.STAKING_POOL_WITHDRAW]: any,
+  [ExtrinsicType.STAKING_SET_CLAIM_PERMISSIONLESS]: RequestSetClaimPermissionless,
 
   // Yield
   [ExtrinsicType.JOIN_YIELD_POOL]: RequestYieldStepSubmit,
@@ -646,7 +649,8 @@ export type TransactionAdditionalInfo = {
   [ExtrinsicType.UNSTAKE_SDOT]: LeavePoolAdditionalData,
   [ExtrinsicType.UNSTAKE_LDOT]: LeavePoolAdditionalData,
   [ExtrinsicType.UNSTAKE_STDOT]: LeavePoolAdditionalData,
-  [ExtrinsicType.STAKING_UNBOND]: Pick<SubmitYieldStepData, 'inputTokenSlug' | 'exchangeRate'>
+  [ExtrinsicType.STAKING_UNBOND]: Pick<SubmitYieldStepData, 'inputTokenSlug' | 'exchangeRate'>,
+  [ExtrinsicType.STAKING_SET_CLAIM_PERMISSIONLESS]: Pick<RequestSetClaimPermissionless, 'claimPermissionless'>
 }
 
 // export type TransactionAdditionalInfo<T extends ExtrinsicType> = T extends ExtrinsicType.TRANSFER_XCM
@@ -722,7 +726,8 @@ export enum StakingTxErrorType {
   EXCEED_MAX_UNSTAKING = 'EXCEED_MAX_UNSTAKING',
   INACTIVE_NOMINATION_POOL = 'INACTIVE_NOMINATION_POOL',
   CAN_NOT_GET_METADATA = 'CAN_NOT_GET_METADATA',
-  NOT_ENOUGH_MIN_UNSTAKE = 'NOT_ENOUGH_MIN_UNSTAKE'
+  NOT_ENOUGH_MIN_UNSTAKE = 'NOT_ENOUGH_MIN_UNSTAKE',
+  NOT_CHANGE_CLAIM_PERMISSION = 'NOT_CHANGE_CLAIM_PERMISSION'
 }
 
 export enum TransferTxErrorType {
@@ -2393,6 +2398,7 @@ export interface KoniRequestSignatures {
   'pri(yield.withdraw.submit)': [RequestYieldWithdrawal, SWTransactionResponse];
   'pri(yield.cancelWithdrawal.submit)': [RequestStakeCancelWithdrawal, SWTransactionResponse];
   'pri(yield.claimReward.submit)': [RequestStakeClaimReward, SWTransactionResponse];
+  'pri(yield.setClaimPermissionless.submit)': [RequestSetClaimPermissionless, SWTransactionResponse];
 
   /* Other */
 
