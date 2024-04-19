@@ -8,7 +8,7 @@ import KoniState from '@subwallet/extension-base/koni/background/handlers/State'
 import { _STAKING_ERA_LENGTH_MAP } from '@subwallet/extension-base/services/chain-service/constants';
 import { _SubstrateApi } from '@subwallet/extension-base/services/chain-service/types';
 import { _getChainSubstrateAddressPrefix } from '@subwallet/extension-base/services/chain-service/utils';
-import { BaseYieldPositionInfo, EarningRewardHistoryItem, EarningRewardItem, EarningStatus, HandleYieldStepData, NominationPoolInfo, NominationYieldPoolInfo, NominationYieldPositionInfo, OptimalYieldPath, OptimalYieldPathParams, PalletNominationPoolsBondedPoolInner, PalletNominationPoolsClaimPermission, PalletNominationPoolsPoolMember, PalletStakingActiveEraInfo, PalletStakingExposure, PalletStakingNominations, RequestSetClaimPermissionless, RequestStakePoolingBonding, StakeCancelWithdrawalParams, SubmitJoinNominationPool, SubmitYieldJoinData, TransactionData, UnstakingStatus, YieldPoolInfo, YieldPoolMethodInfo, YieldPoolType, YieldPositionInfo, YieldStepBaseInfo, YieldStepType, YieldTokenBaseInfo } from '@subwallet/extension-base/types';
+import { BaseYieldPositionInfo, EarningRewardHistoryItem, EarningRewardItem, EarningStatus, HandleYieldStepData, NominationPoolInfo, NominationYieldPoolInfo, NominationYieldPositionInfo, OptimalYieldPath, OptimalYieldPathParams, PalletNominationPoolsBondedPoolInner, PalletNominationPoolsClaimPermission, PalletNominationPoolsPoolMember, PalletStakingActiveEraInfo, PalletStakingExposure, PalletStakingNominations, RequestSetClaimPermissionless, RequestStakePoolingBonding, StakeCancelWithdrawalParams, SubmitJoinNominationPool, SubmitYieldJoinData, TransactionData, UnstakingStatus, YieldPoolInfo, YieldPoolMethodInfo, YieldPoolType, YieldStepBaseInfo, YieldStepType, YieldTokenBaseInfo } from '@subwallet/extension-base/types';
 import { balanceFormatter, formatNumber, reformatAddress } from '@subwallet/extension-base/utils';
 import BigN from 'bignumber.js';
 import { t } from 'i18next';
@@ -282,7 +282,7 @@ export default class NominationPoolHandler extends BasePoolHandler {
     };
   }
 
-  async subscribePoolPosition (useAddresses: string[], resultCallback: (rs: YieldPositionInfo) => void): Promise<VoidFunction> {
+  async subscribePoolPosition (useAddresses: string[], resultCallback: (rs: NominationYieldPositionInfo) => void): Promise<VoidFunction> {
     let cancel = false;
     const substrateApi = this.substrateApi;
     const defaultInfo = this.baseInfo;
@@ -463,7 +463,7 @@ export default class NominationPoolHandler extends BasePoolHandler {
       selectedPool: targets[0] as NominationPoolInfo,
       claimPermissions
     };
-    const positionInfo = await this.getPoolPosition(address);
+    const positionInfo = await this.getPoolPosition(address) as NominationYieldPositionInfo | undefined;
     const [, fee] = await this.createJoinExtrinsic(data, positionInfo);
 
     return [
@@ -525,11 +525,12 @@ export default class NominationPoolHandler extends BasePoolHandler {
     return errors;
   }
 
-  async createJoinExtrinsic (data: SubmitJoinNominationPool, positionInfo?: YieldPositionInfo): Promise<[TransactionData, YieldTokenBaseInfo]> {
+  async createJoinExtrinsic (data: SubmitJoinNominationPool, positionInfo?: NominationYieldPositionInfo): Promise<[TransactionData, YieldTokenBaseInfo]> {
     const { amount, claimPermissions, selectedPool: { id: selectedPoolId } } = data;
 
     const chainApi = await this.substrateApi.isReady;
     const bnActiveStake = new BN(positionInfo?.activeStake || '0');
+    const currentClaimPermission = positionInfo?.claimPermissionStatus
 
     // eslint-disable-next-line @typescript-eslint/require-await
     const compoundResult = async (extrinsic: SubmittableExtrinsic<'promise'>): Promise<[TransactionData, YieldTokenBaseInfo]> => {
@@ -551,7 +552,7 @@ export default class NominationPoolHandler extends BasePoolHandler {
       joinExtrinsic = chainApi.api.tx.nominationPools.join(amount, selectedPoolId);
     }
 
-    if (claimPermissions) {
+    if (claimPermissions && claimPermissions !== currentClaimPermission) {
       claimPermissionExtrinsic = this.getSetClaimPermissionExtrinsic(claimPermissions, chainApi);
     }
 
@@ -570,7 +571,7 @@ export default class NominationPoolHandler extends BasePoolHandler {
   async handleYieldJoin (_data: SubmitYieldJoinData, path: OptimalYieldPath, currentStep: number): Promise<HandleYieldStepData> {
     const data = _data as SubmitJoinNominationPool;
     const { address, amount, selectedPool } = data;
-    const positionInfo = await this.getPoolPosition(address);
+    const positionInfo = await this.getPoolPosition(address) as NominationYieldPositionInfo | undefined;
     const [extrinsic] = await this.createJoinExtrinsic(data, positionInfo);
 
     const joinPoolData: RequestStakePoolingBonding = {
