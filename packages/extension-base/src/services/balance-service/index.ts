@@ -136,7 +136,7 @@ export class BalanceService implements StoppableServiceInterface {
     let lazyTime = 2000;
 
     // Account changed or chain changed (active or inactive)
-    if (eventTypes.includes('account.updateCurrent') || eventTypes.includes('chain.updateState') || eventTypes.includes('asset.updateState')) {
+    if (eventTypes.includes('account.updateCurrent') || eventTypes.includes('account.add') || eventTypes.includes('chain.updateState') || eventTypes.includes('asset.updateState')) {
       needReload = true;
 
       if (eventTypes.includes('account.updateCurrent')) {
@@ -207,7 +207,9 @@ export class BalanceService implements StoppableServiceInterface {
       const evmApiMap = this.state.chainService.getEvmApiMap();
       const substrateApiMap = this.state.chainService.getSubstrateApiMap();
 
-      const unsub = subscribeBalance([address], [chain], [tSlug], assetMap, chainInfoMap, substrateApiMap, evmApiMap, (result) => {
+      let unsub = noop;
+
+      unsub = subscribeBalance([address], [chain], [tSlug], assetMap, chainInfoMap, substrateApiMap, evmApiMap, (result) => {
         const rs = result[0];
 
         if (rs.tokenSlug === tSlug) {
@@ -222,7 +224,7 @@ export class BalanceService implements StoppableServiceInterface {
             callback(balance);
           } else {
             // Auto unsubscribe if no callback
-            unsub();
+            unsub?.();
           }
 
           resolve([unsub, balance]);
@@ -231,7 +233,7 @@ export class BalanceService implements StoppableServiceInterface {
 
       setTimeout(() => {
         if (hasError) {
-          unsub();
+          unsub?.();
           reject(new Error(t('Failed to get balance. Please check your internet connection or change your network endpoint')));
         }
       }, 9999);
@@ -348,6 +350,7 @@ export class BalanceService implements StoppableServiceInterface {
     // Reset balance before subscribe
     await this.handleResetBalance();
 
+    let cancel = false;
     const assetMap = this.state.chainService.getAssetRegistry();
     const chainInfoMap = this.state.chainService.getChainInfoMap();
     const evmApiMap = this.state.chainService.getEvmApiMap();
@@ -362,12 +365,13 @@ export class BalanceService implements StoppableServiceInterface {
       .map((asset) => asset.slug);
 
     const unsub = subscribeBalance(addresses, activeChainSlugs, assets, assetMap, chainInfoMap, substrateApiMap, evmApiMap, (result) => {
-      this.setBalanceItem(result);
+      !cancel && this.setBalanceItem(result);
     });
 
     const unsub2 = this.state.subscribeMantaPayBalance();
 
     this._unsubscribeBalance = () => {
+      cancel = true;
       unsub && unsub();
       unsub2 && unsub2();
     };
