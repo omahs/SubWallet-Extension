@@ -530,7 +530,7 @@ export default class NominationPoolHandler extends BasePoolHandler {
 
     const chainApi = await this.substrateApi.isReady;
     const bnActiveStake = new BN(positionInfo?.activeStake || '0');
-    const currentClaimPermission = positionInfo?.claimPermissionStatus
+    const currentClaimPermission = positionInfo?.claimPermissionStatus;
 
     // eslint-disable-next-line @typescript-eslint/require-await
     const compoundResult = async (extrinsic: SubmittableExtrinsic<'promise'>): Promise<[TransactionData, YieldTokenBaseInfo]> => {
