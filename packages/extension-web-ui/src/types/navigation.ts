@@ -50,7 +50,8 @@ export type CrowdloanContributionsResultParam = {
 
 export type EarningEntryParam = {
   view: EarningEntryView;
-  isBackFromEarningPreview?: boolean;
+  redirectFromPreview?: boolean;
+  chainName?: string;
 };
 
 export type EarningPoolsParam = {
