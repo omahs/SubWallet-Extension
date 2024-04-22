@@ -1,3 +1,15 @@
+diff --git a/node_modules/@mangata-finance/type-definitions/package.json b/node_modules/@mangata-finance/type-definitions/package.json
+index fab5aab..b284a2b 100644
+--- a/node_modules/@mangata-finance/type-definitions/package.json
++++ b/node_modules/@mangata-finance/type-definitions/package.json
+@@ -24,6 +24,7 @@
+   "exports": {
+     ".": {
+       "types": "./src/index.d.ts",
++      "require": "./src/index.cjs",
+       "import": "./src/index.js"
+     }
+   },
 diff --git a/node_modules/@mangata-finance/type-definitions/src/index.cjs b/node_modules/@mangata-finance/type-definitions/src/index.cjs
 new file mode 100644
 index 0000000..500015a

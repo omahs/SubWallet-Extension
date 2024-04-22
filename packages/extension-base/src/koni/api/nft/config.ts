@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { SWStorage } from '@subwallet/extension-base/storage';
-import { RuntimeInfo } from '@subwallet/extension-base/utils';
+import { RuntimeInfo } from '@subwallet/extension-base/utils/environment';
 import Bowser from 'bowser';
 
 export const SINGULAR_V1_ENDPOINT = 'https://singular.rmrk-api.xyz/api/account-rmrk1/';
