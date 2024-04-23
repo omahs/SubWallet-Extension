@@ -135,37 +135,21 @@ const subscribeWithSystemAccountPallet = async ({ addresses, callback, chainInfo
     }
 
     const items: BalanceItem[] = balances.map((balance: AccountInfo, index) => {
-      let total = balance.data?.free?.toBn() || new BN(0);
+      const free = balance.data?.free?.toBn() || new BN(0);
       const reserved = balance.data?.reserved?.toBn() || new BN(0);
       // @ts-ignore
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-      const miscFrozen = balance.data?.miscFrozen?.toBn() || balance?.data?.frozen?.toBn() || new BN(0);
-      const feeFrozen = balance.data?.feeFrozen?.toBn() || new BN(0);
-
-      let locked = reserved.add(miscFrozen);
-
-      total = total.add(reserved);
-
-      const pooledStakingBalance = pooledStakingBalances[index] || BN_ZERO;
-
-      if (pooledStakingBalance.gt(BN_ZERO)) {
-        total = total.add(pooledStakingBalance);
-        locked = locked.add(pooledStakingBalance);
-      }
-
-      const free = total.sub(locked);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
+      const frozen: BN = balance.data?.frozen?.toBn() || balance?.data?.miscFrozen?.toBn() || new BN(0);
+      const pooled: BN = pooledStakingBalances[index] || BN_ZERO;
 
       return ({
         address: addresses[index],
         tokenSlug: chainNativeTokenSlug,
         free: free.gte(BN_ZERO) ? free.toString() : '0',
-        locked: locked.toString(),
-        state: APIItemState.READY,
-        substrateInfo: {
-          miscFrozen: miscFrozen.toString(),
-          reserved: reserved.toString(),
-          feeFrozen: feeFrozen.toString()
-        }
+        frozen: frozen.gte(BN_ZERO) ? frozen.toString() : '0',
+        pooled: pooled.gte(BN_ZERO) ? pooled.toString() : '0',
+        reserved: reserved.gte(BN_ZERO) ? reserved.toString() : '0',
+        state: APIItemState.READY
       });
     });
 
@@ -194,7 +178,7 @@ const subscribeBridgedBalance = async ({ addresses, assetMap, callback, chainInf
             const bdata = balance?.toHuman();
 
             let frozen = BN_ZERO;
-            let total = BN_ZERO;
+            let free = BN_ZERO;
 
             if (bdata) {
               // @ts-ignore
@@ -205,22 +189,18 @@ const subscribeBridgedBalance = async ({ addresses, assetMap, callback, chainInf
               if (bdata?.isFrozen) {
                 frozen = addressBalance;
               } else {
-                total = addressBalance;
+                free = addressBalance;
               }
             }
-
-            const free = total.sub(frozen);
 
             return {
               address: addresses[index],
               tokenSlug: tokenInfo.slug,
-              free: free.toString(),
-              locked: frozen.toString(),
-              state: APIItemState.READY,
-              substrateInfo: {
-                miscFrozen: frozen.toString(),
-                reserved: '0'
-              }
+              free: free.gte(BN_ZERO) ? free.toString() : '0',
+              frozen: frozen.gte(BN_ZERO) ? frozen.toString() : '0',
+              pooled: '0',
+              reserved: '0',
+              state: APIItemState.READY
             };
           });
 
@@ -263,7 +243,9 @@ const subscribePSP22Balance = ({ addresses, assetMap, callback, chainInfo, subst
               address: address,
               tokenSlug: tokenInfo.slug,
               free: _balanceOf.output ? (balanceObj.ok as string ?? balanceObj.Ok as string) : '0',
-              locked: '0',
+              frozen: '0',
+              pooled: '0',
+              reserved: '0',
               state: APIItemState.READY
             };
           } catch (err) {
@@ -273,7 +255,9 @@ const subscribePSP22Balance = ({ addresses, assetMap, callback, chainInfo, subst
               address: address,
               tokenSlug: tokenInfo.slug,
               free: '0',
-              locked: '0',
+              frozen: '0',
+              pooled: '0',
+              reserved: '0',
               state: APIItemState.READY
             };
           }
@@ -309,25 +293,18 @@ const subscribeTokensAccountsPallet = async ({ addresses, assetMap, callback, ch
       // @ts-ignore
       return await substrateApi.query.tokens.accounts.multi(addresses.map((address) => [address, onChainInfo || assetId]), (balances: TokenBalanceRaw[]) => {
         const items: BalanceItem[] = balances.map((balance, index): BalanceItem => {
-          const tokenBalance = {
-            reserved: balance.reserved || new BN(0),
-            frozen: balance.frozen || new BN(0),
-            free: balance.free || new BN(0) // free is actually total balance
-          };
-
-          const freeBalance = tokenBalance.free.sub(tokenBalance.frozen);
-          const lockedBalance = tokenBalance.frozen.add(tokenBalance.reserved);
+          const reserved = balance.reserved || new BN(0);
+          const frozen = balance.frozen || new BN(0);
+          const free = balance.free || new BN(0);
 
           return {
             address: addresses[index],
             tokenSlug: tokenInfo.slug,
             state: APIItemState.READY,
-            free: freeBalance.toString(),
-            locked: lockedBalance.toString(),
-            substrateInfo: {
-              reserved: tokenBalance.reserved.toString(),
-              miscFrozen: tokenBalance.frozen.toString()
-            }
+            free: free.gte(BN_ZERO) ? free.toString() : '0',
+            frozen: frozen.gte(BN_ZERO) ? frozen.toString() : '0',
+            pooled: '0',
+            reserved: reserved.gte(BN_ZERO) ? reserved.toString() : '0'
           };
         });
 
@@ -367,7 +344,7 @@ const subscribeAssetsAccountPallet = async ({ addresses, assetMap, callback, cha
           const bdata = balance?.toPrimitive();
 
           let frozen = BN_ZERO;
-          let total = BN_ZERO;
+          let free = BN_ZERO;
 
           if (bdata) {
             // @ts-ignore
@@ -376,23 +353,19 @@ const subscribeAssetsAccountPallet = async ({ addresses, assetMap, callback, cha
             // @ts-ignore
             if (bdata?.isFrozen || ['Blocked', 'Frozen'].includes(bdata?.status as string)) { // Status 'Frozen' and 'Blocked' are for frozen balance
               frozen = addressBalance;
+            } else {
+              free = addressBalance;
             }
-
-            total = addressBalance;
           }
-
-          const free = total.sub(frozen);
 
           return {
             address: addresses[index],
             tokenSlug: tokenInfo.slug,
-            free: free.toString(),
-            locked: frozen.toString(),
-            state: APIItemState.READY,
-            substrateInfo: {
-              miscFrozen: frozen.toString(),
-              reserved: '0'
-            }
+            free: free.gte(BN_ZERO) ? free.toString() : '0',
+            frozen: frozen.gte(BN_ZERO) ? frozen.toString() : '0',
+            pooled: '0',
+            reserved: '0',
+            state: APIItemState.READY
           };
         });
 
@@ -426,27 +399,18 @@ const subscribeOrmlTokensPallet = async ({ addresses, assetMap, callback, chainI
       // @ts-ignore
       const unsub = await substrateApi.query.ormlTokens.accounts.multi(addresses.map((address) => [address, onChainInfo]), (balances: TokenBalanceRaw[]) => {
         const items: BalanceItem[] = balances.map((balance, index): BalanceItem => {
-          const tokenBalance = {
-            reserved: balance.reserved || new BN(0),
-            frozen: balance.frozen || new BN(0),
-            free: balance.free || new BN(0) // free is actually total balance
-          };
-
-          // free balance = total balance - frozen misc
-          // locked balance = reserved + frozen misc
-          const freeBalance = tokenBalance.free.sub(tokenBalance.frozen);
-          const lockedBalance = tokenBalance.frozen.add(tokenBalance.reserved);
+          const reserved = balance.reserved || new BN(0);
+          const frozen = balance.frozen || new BN(0);
+          const free = balance.free || new BN(0);
 
           return {
             address: addresses[index],
             tokenSlug: tokenInfo.slug,
             state: APIItemState.READY,
-            free: freeBalance.toString(),
-            locked: lockedBalance.toString(),
-            substrateInfo: {
-              reserved: tokenBalance.reserved.toString(),
-              miscFrozen: tokenBalance.frozen.toString()
-            }
+            free: free.gte(BN_ZERO) ? free.toString() : '0',
+            frozen: frozen.gte(BN_ZERO) ? frozen.toString() : '0',
+            pooled: '0',
+            reserved: reserved.gte(BN_ZERO) ? reserved.toString() : '0'
           };
         });
 

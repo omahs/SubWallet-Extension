@@ -16,34 +16,17 @@ import BN from 'bn.js';
 export const groupBalance = (items: BalanceItem[], address: string, token: string): BalanceItem => {
   const states = items.map((item) => item.state);
 
-  const result: BalanceItem = {
+  return {
     address,
     tokenSlug: token,
     free: sumBN(items.map((item) => new BN(item.free))).toString(),
-    locked: sumBN(items.map((item) => new BN(item.locked))).toString(),
+    frozen: sumBN(items.map((item) => new BN(item.frozen))).toString(),
+    pooled: sumBN(items.map((item) => new BN(item.pooled))).toString(),
+    reserved: sumBN(items.map((item) => new BN(item.reserved))).toString(),
     state: states.every((item) => item === APIItemState.NOT_SUPPORT)
       ? APIItemState.NOT_SUPPORT
       : states.some((item) => item === APIItemState.READY)
         ? APIItemState.READY
         : APIItemState.PENDING
   };
-
-  for (const item of items) {
-    if (item.substrateInfo) {
-      if (!result.substrateInfo) {
-        result.substrateInfo = { ...item.substrateInfo };
-      } else {
-        const old = { ...result.substrateInfo };
-        const _new = { ...item.substrateInfo };
-
-        result.substrateInfo = {
-          reserved: new BN(old.reserved || '0').add(new BN(_new.reserved || '0')).toString(),
-          feeFrozen: new BN(old.feeFrozen || '0').add(new BN(_new.feeFrozen || '0')).toString(),
-          miscFrozen: new BN(old.miscFrozen || '0').add(new BN(_new.miscFrozen || '0')).toString()
-        };
-      }
-    }
-  }
-
-  return result;
 };

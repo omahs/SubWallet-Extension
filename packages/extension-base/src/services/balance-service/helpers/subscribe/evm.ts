@@ -42,7 +42,9 @@ export function subscribeERC20Interval ({ addresses, assetMap, callback, chainIn
             address: addresses[index],
             tokenSlug: tokenInfo.slug,
             free: new BN(balance || 0).toString(),
-            locked: '0',
+            frozen: '0',
+            pooled: '0',
+            reserved: '0',
             state: APIItemState.READY
           };
         });
@@ -78,7 +80,9 @@ export function subscribeEVMBalance (params: SubscribeEvmPalletBalance) {
             tokenSlug: nativeTokenSlug,
             state: APIItemState.READY,
             free: (new BN(balance || '0')).toString(),
-            locked: '0'
+            frozen: '0',
+            pooled: '0',
+            reserved: '0'
           };
         });
       })
@@ -91,7 +95,9 @@ export function subscribeEVMBalance (params: SubscribeEvmPalletBalance) {
             tokenSlug: nativeTokenSlug,
             state: APIItemState.READY,
             free: '0',
-            locked: '0'
+            frozen: '0',
+            pooled: '0',
+            reserved: '0'
           };
         });
       })

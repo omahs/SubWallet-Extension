@@ -38,10 +38,13 @@ export const subscribeEquilibriumTokenBalance = async ({ addresses, assetMap, ca
           const freeTokenBalance = balanceList.find((data: EqBalanceItem) => data[0] === parseInt(assetId));
           const bnFreeTokenBalance = freeTokenBalance ? new BN(new BigN(freeTokenBalance[1].positive).toString()) : BN_ZERO;
 
+          // Can't verify
           return {
             address: addresses[index],
             free: bnFreeTokenBalance.toString(),
-            locked: '0', // Equilibrium doesn't show locked balance
+            frozen: '0',
+            pooled: '0',
+            reserved: '0',
             state: APIItemState.READY,
             tokenSlug: tokenInfo.slug
           };
@@ -60,7 +63,9 @@ export const subscribeEquilibriumTokenBalance = async ({ addresses, assetMap, ca
         return {
           address: address,
           free: '0',
-          locked: '0', // Equilibrium doesn't show locked balance
+          frozen: '0',
+          pooled: '0',
+          reserved: '0',
           state: APIItemState.READY,
           tokenSlug: tokenInfo.slug
         };
@@ -86,10 +91,13 @@ export const subscribeEqBalanceAccountPallet = async ({ addresses, assetMap, cal
       const assetId = _getTokenOnChainAssetId(tokenInfo);
       const unsub = await substrateApi.query.eqBalances.account.multi(addresses.map((address) => [address, [assetId]]), (balances: SignedBalance[]) => {
         const items: BalanceItem[] = balances.map((balance, index) => {
+          // Can't verify
           return {
             address: addresses[index],
             free: balance.asPositive.toString(),
-            locked: '0', // Equilibrium doesn't show locked balance
+            frozen: '0',
+            pooled: '0',
+            reserved: '0',
             state: APIItemState.READY,
             tokenSlug: tokenInfo.slug
           };
@@ -106,7 +114,9 @@ export const subscribeEqBalanceAccountPallet = async ({ addresses, assetMap, cal
         return {
           address: address,
           free: '0',
-          locked: '0', // Equilibrium doesn't show locked balance
+          frozen: '0',
+          pooled: '0',
+          reserved: '0',
           state: APIItemState.READY,
           tokenSlug: tokenInfo.slug
         };

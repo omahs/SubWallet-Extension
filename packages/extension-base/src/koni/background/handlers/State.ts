@@ -296,7 +296,9 @@ export default class KoniState {
             address,
             tokenSlug: assetSlug,
             free: '',
-            locked: '',
+            frozen: '',
+            pooled: '',
+            reserved: '',
             state: APIItemState.PENDING
           };
         });
@@ -1999,7 +2001,9 @@ export default class KoniState {
             tokenSlug: assetList[i].slug,
             state: APIItemState.PENDING,
             free: '0',
-            locked: '0'
+            frozen: '0',
+            reserved: '0',
+            pooled: '0'
           } as BalanceItem;
 
           balanceItem.free = zkBalances[i]?.toString() || '0';
