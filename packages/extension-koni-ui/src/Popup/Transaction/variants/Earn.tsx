@@ -5,7 +5,7 @@ import { ExtrinsicType, NotificationType } from '@subwallet/extension-base/backg
 import { _getAssetDecimals, _getAssetSymbol, _getSubstrateGenesisHash, _isChainEvmCompatible } from '@subwallet/extension-base/services/chain-service/utils';
 import { isLendingPool, isLiquidPool } from '@subwallet/extension-base/services/earning-service/utils';
 import { SWTransactionResponse } from '@subwallet/extension-base/services/transaction-service/types';
-import { NominationPoolInfo, OptimalYieldPath, OptimalYieldPathParams, PalletNominationPoolsClaimPermission, SubmitJoinNativeStaking, SubmitJoinNominationPool, SubmitYieldJoinData, ValidatorInfo, YieldPoolType, YieldStepType } from '@subwallet/extension-base/types';
+import { NominationPoolInfo, NominationYieldPositionInfo, OptimalYieldPath, OptimalYieldPathParams, PalletNominationPoolsClaimPermission, SubmitJoinNativeStaking, SubmitJoinNominationPool, SubmitYieldJoinData, ValidatorInfo, YieldPoolType, YieldStepType } from '@subwallet/extension-base/types';
 import { addLazy } from '@subwallet/extension-base/utils';
 import { AccountSelector, AlertBox, AmountInput, EarningPoolSelector, EarningValidatorSelector, HiddenInput, InfoIcon, LoadingScreen, MetaInfo } from '@subwallet/extension-koni-ui/components';
 import { EarningProcessItem } from '@subwallet/extension-koni-ui/components/Earning';
@@ -101,7 +101,7 @@ const Component = () => {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [checkMintLoading, setCheckMintLoading] = useState(false);
   const [isFormInvalid, setIsFormInvalid] = useState(true);
-  const [stateAutoClaimManage, setAutoStateClaimManage] = useState<PalletNominationPoolsClaimPermission>(PalletNominationPoolsClaimPermission.PERMISSIONED);
+  const [stateAutoClaimManage, setAutoStateClaimManage] = useState<PalletNominationPoolsClaimPermission>(defaultData.claimPermissionless || (compound as NominationYieldPositionInfo)?.claimPermissionStatus || PalletNominationPoolsClaimPermission.PERMISSIONED);
 
   const chainState = useFetchChainState(poolInfo?.chain || '');
 
@@ -266,8 +266,8 @@ const Component = () => {
     const values = convertFieldToObject<EarnParams>(allFields);
 
     setIsFormInvalid(empty || error);
-    persistData(values);
-  }, [persistData]);
+    persistData({ ...values, claimPermissionless: stateAutoClaimManage });
+  }, [persistData, stateAutoClaimManage]);
 
   const handleDataForInsufficientAlert = useCallback(() => {
     const _assetDecimals = nativeAsset.decimals || 0;
@@ -453,8 +453,6 @@ const Component = () => {
       const isLastStep = step === processState.steps.length - 1;
       const needRollback = step === 1;
       const data = getData(step);
-
-      console.log('data', data);
 
       try {
         if (isFirstStep) {
@@ -1020,6 +1018,7 @@ const Component = () => {
                             </div>
                             <Switch
                               checked={stateAutoClaimManage !== PalletNominationPoolsClaimPermission.PERMISSIONED}
+                              className={'__auto-claim-switch-state'}
                               onClick={handleEnableAutoCompoundSwitch}
                             />
                           </div>
@@ -1028,7 +1027,7 @@ const Component = () => {
                               <div className={CN('__auto-claim-state-item', '-row-last')}>
                                 <Tag
                                   bgType={'default'}
-                                  className={CN('__status-auto-claim')}
+                                  className={CN('__status-auto-claim', SET_CLAIM_PERMISSIONS[stateAutoClaimManage].bgColor)}
                                   color={SET_CLAIM_PERMISSIONS[stateAutoClaimManage].bgColor}
                                   icon={(
                                     <Icon
@@ -1184,7 +1183,8 @@ const Earn = styled(Wrapper)<Props>(({ theme: { token } }: Props) => {
     '.__auto-claim-state-item': {
       display: 'flex',
       justifyContent: 'space-between',
-      alignItems: 'center'
+      alignItems: 'center',
+      position: 'relative'
     },
 
     '.__auto-claim-group': {
@@ -1207,18 +1207,32 @@ const Earn = styled(Wrapper)<Props>(({ theme: { token } }: Props) => {
 
     '.__manage-auto-compound-label': {
       fontWeight: token.fontWeightStrong,
+      fontSize: token.fontSizeHeading6,
       lineHeight: token.lineHeightHeading6,
       color: token.colorTextLight3
     },
 
     '.__left-item-label': {
       fontWeight: token.fontWeightStrong,
-      lineHeight: token.lineHeightHeading5,
-      fontSize: token.fontSizeHeading5
+      lineHeight: token.lineHeightHeading6,
+      fontSize: token.fontSizeHeading6
     },
 
     '.-row-last': {
       marginBottom: -token.marginSM
+    },
+
+    '.__status-auto-claim.lime': {
+      color: token['lime-7']
+    },
+
+    '.__status-auto-claim.blue': {
+      color: token['blue-7']
+    },
+
+    '.__auto-claim-switch-state': {
+      position: 'absolute',
+      right: 0
     }
   };
 });

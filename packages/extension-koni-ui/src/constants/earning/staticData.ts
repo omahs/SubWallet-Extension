@@ -225,8 +225,8 @@ export const SET_CLAIM_PERMISSIONS = {
   [PalletNominationPoolsClaimPermission.PERMISSIONLESS_WITHDRAW]: {
     title: 'Auto withdraw',
     description: 'Your nomination pool staking rewards are auto withdrawn to your transferable balance',
-    icon: 'Coins',
+    icon: 'ArrowCircleDown',
     iconColor: '#004BFF',
-    bgColor: 'geekblue'
+    bgColor: 'blue'
   }
 };

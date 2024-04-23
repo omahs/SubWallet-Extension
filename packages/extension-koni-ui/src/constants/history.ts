@@ -45,7 +45,7 @@ export const TxTypeNameMap: Record<ExtrinsicType, string> = {
   [ExtrinsicType.TOKEN_APPROVE]: detectTranslate('Token approve'),
   [ExtrinsicType.SWAP]: detectTranslate('Swap'),
   [ExtrinsicType.UNKNOWN]: detectTranslate('Unknown'),
-  [ExtrinsicType.STAKING_SET_CLAIM_PERMISSIONLESS]: detectTranslate('Set claim permission')
+  [ExtrinsicType.STAKING_SET_CLAIM_PERMISSIONLESS]: detectTranslate('Add auto claim')
 };
 
 export const StakingTypeNameMap: Record<string, string> = {

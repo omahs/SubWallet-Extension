@@ -1,38 +1,42 @@
 // Copyright 2019-2022 @subwallet/extension-koni-ui authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { ExtrinsicType } from '@subwallet/extension-base/background/KoniTypes';
 import { PalletNominationPoolsClaimPermission } from '@subwallet/extension-base/types';
+import { detectTranslate } from '@subwallet/extension-base/utils';
 import { InstructionItem } from '@subwallet/extension-koni-ui/components';
 import { EARNING_MANAGE_AUTO_CLAIM_MODAL, SET_CLAIM_PERMISSIONS } from '@subwallet/extension-koni-ui/constants';
+import { usePreCheckAction } from '@subwallet/extension-koni-ui/hooks';
+import { RootState } from '@subwallet/extension-koni-ui/stores';
 import { Theme, ThemeProps } from '@subwallet/extension-koni-ui/types';
 import { getBannerButtonIcon } from '@subwallet/extension-koni-ui/utils';
 import { BackgroundIcon, Button, Icon, ModalContext, SwModal } from '@subwallet/react-ui';
-import { getAlphaColor } from '@subwallet/react-ui/lib/theme/themes/default/colorAlgorithm';
 import CN from 'classnames';
 import { CheckCircle, XCircle } from 'phosphor-react';
 import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSelector } from 'react-redux';
 import styled, { useTheme } from 'styled-components';
 
 interface Props extends ThemeProps {
   onSubmit: (state: PalletNominationPoolsClaimPermission) => Promise<any>;
   currentMode: PalletNominationPoolsClaimPermission;
+  blockWatchOnly?: boolean;
+  setIsLoading?: (isLoading: boolean) => void;
 }
 
 const SET_CLAIM_PERMISSIONS_LIST = Object.entries(SET_CLAIM_PERMISSIONS);
-
+const earningMessageWatchOnly = detectTranslate('You are using a {{accountTitle}}. Earning is not supported with this account type');
 const claimPermissionsModalId = EARNING_MANAGE_AUTO_CLAIM_MODAL;
 
 const Component: React.FC<Props> = (props: Props) => {
   const { className } = props;
-
-  // const data = transaction.data as RequestSetClaimPermissionless;
-  const { inactiveModal } = useContext(ModalContext);
-  //
-  // console.log(data, '12312312312');
+  const { currentAccount } = useSelector((state: RootState) => state.accountState);
+  const { checkActive, inactiveModal } = useContext(ModalContext);
+  const onPreCheck = usePreCheckAction(currentAccount?.address, true, earningMessageWatchOnly);
   const { t } = useTranslation();
   const { token } = useTheme() as Theme;
-  const [modeAutoClaim, setModeAutoClaim] = useState<PalletNominationPoolsClaimPermission>(props.currentMode);
+  const [modeAutoClaim, setModeAutoClaim] = useState<PalletNominationPoolsClaimPermission>(props.currentMode || PalletNominationPoolsClaimPermission.PERMISSIONLESS_COMPOUND);
   const [isLoading, setIsLoading] = useState(false);
 
   const titleModeItem = useCallback((mode: PalletNominationPoolsClaimPermission) => {
@@ -57,8 +61,10 @@ const Component: React.FC<Props> = (props: Props) => {
   }, [modeAutoClaim, token.colorSuccess]);
 
   const onCancelModal = useCallback(() => {
+    setModeAutoClaim(props.currentMode);
     inactiveModal(claimPermissionsModalId);
-  }, [inactiveModal]);
+    props.setIsLoading && props.setIsLoading(false);
+  }, [inactiveModal, props]);
 
   const onSelectAutoClaimMode = useCallback((key: string) => {
     return () => {
@@ -72,7 +78,10 @@ const Component: React.FC<Props> = (props: Props) => {
     if (modeAutoClaim !== props.currentMode) {
       props.onSubmit(modeAutoClaim).then(() => {
         setIsLoading(false);
-      }).catch((error) => console.log(error))
+      }).catch((error) => {
+        setModeAutoClaim(props.currentMode);
+        console.log(error);
+      })
         .finally(() => inactiveModal(claimPermissionsModalId));
     } else {
       setIsLoading(false);
@@ -81,8 +90,8 @@ const Component: React.FC<Props> = (props: Props) => {
   }, [inactiveModal, modeAutoClaim, props]);
 
   useEffect(() => {
-    setModeAutoClaim(props.currentMode);
-  }, [props.currentMode]);
+    setModeAutoClaim(props.currentMode === PalletNominationPoolsClaimPermission.PERMISSIONED ? PalletNominationPoolsClaimPermission.PERMISSIONLESS_COMPOUND : props.currentMode);
+  }, [checkActive, props.currentMode]);
 
   const footerModal = useMemo(() => {
     return (
@@ -110,13 +119,13 @@ const Component: React.FC<Props> = (props: Props) => {
             />
           }
           loading={isLoading}
-          onClick={onSubmitAutoClaimMode}
+          onClick={props.blockWatchOnly ? onPreCheck(onSubmitAutoClaimMode, ExtrinsicType.STAKING_SET_CLAIM_PERMISSIONLESS) : onSubmitAutoClaimMode}
         >
           {t('Submit')}
         </Button>
       </div>
     );
-  }, [isLoading, onCancelModal, onSubmitAutoClaimMode, t]);
+  }, [isLoading, onCancelModal, t, props.blockWatchOnly, onPreCheck, onSubmitAutoClaimMode]);
 
   return (
     <SwModal
@@ -143,10 +152,10 @@ const Component: React.FC<Props> = (props: Props) => {
               )}
               iconInstruction={
                 <BackgroundIcon
-                  backgroundColor={getAlphaColor(_props.iconColor, 0.1)}
-                  iconColor={_props.iconColor}
+                  backgroundColor={_props.iconColor}
+                  iconColor={'white'}
                   phosphorIcon={getBannerButtonIcon(_props.icon)}
-                  size='lg'
+                  size='sm'
                   weight='fill'
                 />
               }
@@ -203,6 +212,11 @@ const EarningManageClaimPermissions = styled(Component)<Props>(({ theme: { token
 
     '.__permission-claim-mode.-isSelected': {
       borderColor: token.colorSuccess
+    },
+
+    '.__item-description': {
+      fontSize: token.fontSizeSM,
+      lineHeight: token.lineHeightSM
     }
   };
 });

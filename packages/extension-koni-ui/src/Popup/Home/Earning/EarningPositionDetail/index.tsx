@@ -1,13 +1,14 @@
 // Copyright 2019-2022 @subwallet/extension-koni-ui authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { NotificationType } from '@subwallet/extension-base/background/KoniTypes';
+import { ExtrinsicType, NotificationType } from '@subwallet/extension-base/background/KoniTypes';
 import { EarningRewardHistoryItem, NominationYieldPositionInfo, PalletNominationPoolsClaimPermission, SpecialYieldPoolInfo, SpecialYieldPositionInfo, YieldPoolInfo, YieldPoolType, YieldPositionInfo } from '@subwallet/extension-base/types';
+import { detectTranslate } from '@subwallet/extension-base/utils';
 import { AlertModal, Layout, PageWrapper } from '@subwallet/extension-koni-ui/components';
 import { EarningManageClaimPermissions } from '@subwallet/extension-koni-ui/components/Modal/Earning';
 import { BN_TEN, BN_ZERO, DEFAULT_EARN_PARAMS, DEFAULT_UN_STAKE_PARAMS, EARN_TRANSACTION, EARNING_MANAGE_AUTO_CLAIM_MODAL, SET_CLAIM_PERMISSIONS, UN_STAKE_TRANSACTION } from '@subwallet/extension-koni-ui/constants';
 import { DataContext } from '@subwallet/extension-koni-ui/contexts/DataContext';
-import { useAlert, useSelector, useTranslation, useYieldPositionDetail } from '@subwallet/extension-koni-ui/hooks';
+import { useAlert, usePreCheckAction, useSelector, useTranslation, useYieldPositionDetail } from '@subwallet/extension-koni-ui/hooks';
 import { yieldSubmitSetClaimPermissions } from '@subwallet/extension-koni-ui/messaging';
 import { AccountAndNominationInfoPart } from '@subwallet/extension-koni-ui/Popup/Home/Earning/EarningPositionDetail/AccountAndNominationInfoPart';
 import { EarningInfoPart } from '@subwallet/extension-koni-ui/Popup/Home/Earning/EarningPositionDetail/EarningInfoPart';
@@ -38,6 +39,8 @@ type ComponentProp = {
 
 const alertModalId = 'earn-position-detail-alert-modal';
 const manageAutoClaimModalId = EARNING_MANAGE_AUTO_CLAIM_MODAL;
+const messageRejectAccount = 'Rejected by user';
+const earningMessageWatchOnly = detectTranslate('You are using a {{accountTitle}}. Earning is not supported with this account type');
 
 function Component ({ compound,
   list,
@@ -54,8 +57,9 @@ function Component ({ compound,
   const [stateAutoClaimManage, setAutoStateClaimManage] = useState<PalletNominationPoolsClaimPermission | undefined>((compound as NominationYieldPositionInfo).claimPermissionStatus);
   const [, setEarnStorage] = useLocalStorage(EARN_TRANSACTION, DEFAULT_EARN_PARAMS);
   const [, setUnStakeStorage] = useLocalStorage(UN_STAKE_TRANSACTION, DEFAULT_UN_STAKE_PARAMS);
-  const { activeModal } = useContext(ModalContext);
+  const { activeModal, inactiveModal } = useContext(ModalContext);
   const { token } = useTheme() as Theme;
+  const onPreCheck = usePreCheckAction(currentAccount?.address, true, earningMessageWatchOnly);
   const { alertProps, closeAlert, openAlert } = useAlert(alertModalId);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const notify = useNotification();
@@ -144,10 +148,11 @@ function Component ({ compound,
       ...DEFAULT_EARN_PARAMS,
       slug: compound.slug,
       chain: transactionChainValue,
-      from: transactionFromValue
+      from: transactionFromValue,
+      claimPermissionless: stateAutoClaimManage
     });
     navigate('/transaction/earn');
-  }, [compound.slug, navigate, setEarnStorage, transactionChainValue, transactionFromValue]);
+  }, [compound.slug, navigate, setEarnStorage, transactionChainValue, transactionFromValue, stateAutoClaimManage]);
 
   const onBack = useCallback(() => {
     navigate('/home/earning', { state: {
@@ -156,39 +161,41 @@ function Component ({ compound,
   }, [navigate]);
 
   const openManageAutoClaimModal = useCallback(() => {
-    activeModal(manageAutoClaimModalId);
-  }, [activeModal]);
+    !isLoading && activeModal(manageAutoClaimModalId);
+  }, [activeModal, isLoading]);
 
-  const handleEnableAutoCompoundSwitch = useCallback((checked: boolean, event: React.MouseEvent<HTMLButtonElement>) => {
-    setIsLoading(true);
+  const handleEnableAutoCompoundSwitch = useCallback(() => {
     const { address, slug } = compound;
-    const claimPermissionless = checked ? PalletNominationPoolsClaimPermission.PERMISSIONLESS_COMPOUND : PalletNominationPoolsClaimPermission.PERMISSIONED;
 
-    yieldSubmitSetClaimPermissions({
-      address,
-      slug,
-      claimPermissionless
-    })
-      .then((rs) => {
-        if (rs.errors.length === 0) {
-          setAutoStateClaimManage(claimPermissionless);
-        } else {
-          notify({
-            type: 'error',
-            message: rs.errors[0].message
-          });
-        }
+    if (stateAutoClaimManage !== PalletNominationPoolsClaimPermission.PERMISSIONED) {
+      setIsLoading(true);
+      yieldSubmitSetClaimPermissions({
+        address,
+        slug,
+        claimPermissionless: PalletNominationPoolsClaimPermission.PERMISSIONED
       })
-      .catch((error) => {
-        console.error(error);
-      })
-      .finally(() => {
-        setIsLoading(false);
-      });
-  }, [compound, notify]);
+        .then((rs) => {
+          if (rs.errors.length > 0) {
+            rs.errors[0].message !== messageRejectAccount && notify({
+              type: 'error',
+              message: rs.errors[0].message
+            });
+
+            setIsLoading(false);
+          }
+        })
+        .catch((error) => {
+          console.error(error);
+        });
+    } else {
+      setIsLoading(true);
+      activeModal(manageAutoClaimModalId);
+    }
+  }, [compound, notify, stateAutoClaimManage, activeModal]);
 
   const handleSetModeAutoCompound = useCallback((mode: PalletNominationPoolsClaimPermission) => {
     return new Promise((resolve) => {
+      setIsLoading(true);
       const { address, slug } = compound;
 
       yieldSubmitSetClaimPermissions({
@@ -197,22 +204,22 @@ function Component ({ compound,
         claimPermissionless: mode
       })
         .then((rs) => {
-          if (rs.errors.length === 0) {
-            setAutoStateClaimManage(mode);
-          } else {
-            notify({
+          if (rs.errors.length > 0) {
+            rs.errors[0].message !== messageRejectAccount && notify({
               type: 'error',
               message: rs.errors[0].message
             });
+            setIsLoading(false);
           }
 
           resolve(mode);
         })
         .catch((error) => {
           console.error(error);
-        });
+        })
+        .finally(() => inactiveModal(manageAutoClaimModalId));
     });
-  }, [compound, notify]);
+  }, [compound, notify, inactiveModal]);
 
   const subHeaderButtons: ButtonProps[] = useMemo(() => {
     return [
@@ -228,6 +235,14 @@ function Component ({ compound,
       }
     ];
   }, [onEarnMore]);
+
+  useEffect(() => {
+    setAutoStateClaimManage((compound as NominationYieldPositionInfo).claimPermissionStatus);
+  }, [compound]);
+
+  useEffect(() => {
+    setIsLoading(false);
+  }, [stateAutoClaimManage]);
 
   return (
     <>
@@ -285,8 +300,9 @@ function Component ({ compound,
                   </div>
                   <Switch
                     checked={stateAutoClaimManage !== PalletNominationPoolsClaimPermission.PERMISSIONED}
+                    className={'__auto-claim-switch-state'}
                     loading={isLoading}
-                    onClick={handleEnableAutoCompoundSwitch}
+                    onClick={onPreCheck(handleEnableAutoCompoundSwitch, ExtrinsicType.STAKING_SET_CLAIM_PERMISSIONLESS)}
                   />
                 </div>
                 {
@@ -294,7 +310,7 @@ function Component ({ compound,
                     <div className={'__auto-claim-state-item'}>
                       <Tag
                         bgType={'default'}
-                        className={CN('__status-auto-claim')}
+                        className={CN('__status-auto-claim', SET_CLAIM_PERMISSIONS[stateAutoClaimManage].bgColor)}
                         color={SET_CLAIM_PERMISSIONS[stateAutoClaimManage].bgColor}
                         icon={(
                           <Icon
@@ -306,7 +322,9 @@ function Component ({ compound,
                         {t(SET_CLAIM_PERMISSIONS[stateAutoClaimManage].title)}
                       </Tag>
                       <div
-                        className={'__manage-auto-compound-box'}
+                        className={CN('__manage-auto-compound-box', {
+                          '-disabled': isLoading
+                        })}
                         onClick={openManageAutoClaimModal}
                       >
                         <Icon
@@ -339,6 +357,7 @@ function Component ({ compound,
         <div className={'__transaction-buttons'}>
           <Button
             block={true}
+            disabled={isLoading}
             icon={(
               <Icon
                 phosphorIcon={MinusCircle}
@@ -353,6 +372,7 @@ function Component ({ compound,
 
           <Button
             block={true}
+            disabled={isLoading}
             icon={(
               <Icon
                 phosphorIcon={PlusCircle}
@@ -400,8 +420,10 @@ function Component ({ compound,
       }
 
       {stateAutoClaimManage && <EarningManageClaimPermissions
+        blockWatchOnly={true}
         currentMode={stateAutoClaimManage}
         onSubmit={handleSetModeAutoCompound}
+        setIsLoading={setIsLoading}
       />}
     </>
   );
@@ -533,7 +555,8 @@ const EarningPositionDetail = styled(Wrapper)<Props>(({ theme: { token } }: Prop
   '.__auto-claim-state-item': {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center'
+    alignItems: 'center',
+    position: 'relative'
   },
 
   '.__auto-claim-group': {
@@ -551,6 +574,14 @@ const EarningPositionDetail = styled(Wrapper)<Props>(({ theme: { token } }: Prop
 
     '&:hover': {
       opacity: 0.8
+    },
+
+    '&.-disabled': {
+      cursor: 'not-allowed'
+    },
+
+    '&.-disabled:hover': {
+      opacity: 1
     }
   },
 
@@ -562,13 +593,26 @@ const EarningPositionDetail = styled(Wrapper)<Props>(({ theme: { token } }: Prop
 
   '.__left-item-label': {
     fontWeight: token.fontWeightStrong,
-    lineHeight: token.lineHeightHeading5,
-    fontSize: token.fontSizeHeading5,
+    fontSize: token.fontSizeHeading6,
+    lineHeight: token.lineHeightHeading6,
     marginLeft: token.marginXS
   },
 
   '.-row-last': {
     marginBottom: -token.marginSM
+  },
+
+  '.__status-auto-claim.lime': {
+    color: token['lime-7']
+  },
+
+  '.__status-auto-claim.blue': {
+    color: token['blue-7']
+  },
+
+  '.__auto-claim-switch-state': {
+    right: 0,
+    position: 'absolute'
   }
 }));
 

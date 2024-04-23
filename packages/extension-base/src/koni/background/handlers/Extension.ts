@@ -4191,6 +4191,7 @@ export default class KoniExtension {
       return this.#koniState.transactionService.generateBeforeHandleResponseErrors(validation);
     }
 
+    console.log(params, 'params 123');
     const extrinsic = await this.#koniState.earningService.handleSetClaimPermissionless(params);
 
     return await this.#koniState.transactionService.handleTransaction({

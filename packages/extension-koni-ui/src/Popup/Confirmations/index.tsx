@@ -4,6 +4,7 @@
 import { ConfirmationDefinitions, ExtrinsicType } from '@subwallet/extension-base/background/KoniTypes';
 import { AccountJson, AuthorizeRequest, MetadataRequest, SigningRequest } from '@subwallet/extension-base/background/types';
 import { WalletConnectNotSupportRequest, WalletConnectSessionRequest } from '@subwallet/extension-base/services/wallet-connect-service/types';
+import { PalletNominationPoolsClaimPermission, RequestSetClaimPermissionless } from '@subwallet/extension-base/types';
 import { detectTranslate } from '@subwallet/extension-base/utils';
 import { AlertModal } from '@subwallet/extension-koni-ui/components';
 import { NEED_SIGN_CONFIRMATION } from '@subwallet/extension-koni-ui/constants';
@@ -162,6 +163,8 @@ const Component = function ({ className }: Props) {
 
     if (confirmation.item.isInternal) {
       const transaction = transactionRequest[confirmation.item.id];
+      const isRemoveAutoClaim = !!(transaction.data as RequestSetClaimPermissionless).claimPermissionless &&
+        (transaction.data as RequestSetClaimPermissionless).claimPermissionless === PalletNominationPoolsClaimPermission.PERMISSIONED;
 
       if (!transaction) {
         return t(titleMap[confirmation.type] || '');
@@ -232,7 +235,7 @@ const Component = function ({ className }: Props) {
         case ExtrinsicType.SWAP:
           return t('Swap confirmation');
         case ExtrinsicType.STAKING_SET_CLAIM_PERMISSIONLESS:
-          return t('Auto claim confirmation');
+          return isRemoveAutoClaim ? t('Remove auto claim') : t('Add auto claim');
         case ExtrinsicType.CROWDLOAN:
         case ExtrinsicType.EVM_EXECUTE:
         case ExtrinsicType.UNKNOWN:
