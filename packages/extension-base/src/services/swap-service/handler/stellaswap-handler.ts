@@ -8,6 +8,7 @@ import { SwapError } from '@subwallet/extension-base/background/errors/SwapError
 import { TransactionError } from '@subwallet/extension-base/background/errors/TransactionError';
 import { BasicTxErrorType, ChainType, ExtrinsicType } from '@subwallet/extension-base/background/KoniTypes';
 import { getEVMTransactionObject } from '@subwallet/extension-base/koni/api/tokens/evm/transfer';
+import { getERC20Contract } from '@subwallet/extension-base/koni/api/tokens/evm/web3';
 import { BalanceService } from '@subwallet/extension-base/services/balance-service';
 import { ChainService } from '@subwallet/extension-base/services/chain-service';
 import { _getChainNativeTokenSlug, _getContractAddressOfToken, _isNativeToken, _isSmartContractToken } from '@subwallet/extension-base/services/chain-service/utils';
@@ -17,6 +18,9 @@ import { BaseStepDetail } from '@subwallet/extension-base/types/service-base';
 import { HydradxPreValidationMetadata, OptimalSwapPath, OptimalSwapPathParams, StellaswapPreValidationMetadata, SwapBaseTxData, SwapEarlyValidation, SwapErrorType, SwapFeeInfo, SwapFeeType, SwapProviderId, SwapQuote, SwapRequest, SwapRoute, SwapStepType, SwapSubmitParams, SwapSubmitStepData, ValidateSwapProcessParams } from '@subwallet/extension-base/types/swap';
 import { AxiosError } from 'axios';
 import BigNumber from 'bignumber.js';
+import { AbstractSigner, ethers } from 'ethers';
+
+// const STELLASWAP_LOW_LIQUIDITY_THRESHOLD = 0.15; // in percentage
 
 interface StellaswapQuoteResp {
   isSuccess: boolean;
@@ -53,6 +57,8 @@ interface StellaswapTrade {
   type: string
 }
 
+const STELLASWAP_NATIVE_TOKEN_ID = 'ETH';
+
 export class StellaswapHandler implements SwapBaseInterface {
   private swapBaseHandler: SwapBaseHandler;
   isTestnet: boolean;
@@ -68,13 +74,22 @@ export class StellaswapHandler implements SwapBaseInterface {
     this.isTestnet = isTestnet;
   }
 
-  get chain () {
+  getMockSigner (address: string, providerUrl: string): AbstractSigner {
+    const providerObj = new ethers.JsonRpcProvider(providerUrl);
+
+    // @ts-ignore
+    providerObj._isProvider = true;
+
+    return new ethers.VoidSigner(address, providerObj);
+  }
+
+  chain = (): string => {
     if (!this.isTestnet) {
       return COMMON_CHAIN_SLUGS.MOONBEAM;
     } else {
       return COMMON_CHAIN_SLUGS.MOONBASE;
     }
-  }
+  };
 
   get chainService () {
     return this.swapBaseHandler.chainService;
@@ -98,13 +113,66 @@ export class StellaswapHandler implements SwapBaseInterface {
 
   generateOptimalProcess (params: OptimalSwapPathParams): Promise<OptimalSwapPath> {
     return this.swapBaseHandler.generateOptimalProcess(params, [
-      this.getApproveStep,
+      this.getApproveStep.bind(this),
       this.getSubmitStep
     ]);
   }
 
-  getApproveStep (): Promise<[BaseStepDetail, SwapFeeInfo] | undefined> {
-    return Promise.resolve(undefined);
+  async getApproveStep (params: OptimalSwapPathParams): Promise<[BaseStepDetail, SwapFeeInfo] | undefined> {
+    const pair = params.request.pair;
+    const fromAsset = this.chainService.getAssetBySlug(pair.from);
+
+    if (_isNativeToken(fromAsset)) {
+      return Promise.resolve(undefined);
+    }
+
+    const fromAssetAddress = _getContractAddressOfToken(fromAsset);
+
+    const fromChain = this.chainService.getChainInfoByKey(fromAsset.originChain);
+    const fromChainNativeTokenSlug = _getChainNativeTokenSlug(fromChain);
+
+    if (fromAssetAddress.length === 0) {
+      return Promise.resolve(undefined);
+    }
+
+    const currentHttpProvider = this.chainService.getChainCurrentProviderByKey(this.chain()).endpoint.replace('wss://', 'https://');
+    const mockSigner = this.getMockSigner(params.request.address, currentHttpProvider);
+
+    const allowance = await stellaSwap.checkAllowance(_getContractAddressOfToken(fromAsset), mockSigner, '0xeb70c2E0c0DCD6A6187D75b55AFc25b3B3ebE5a2') as string;
+    const bnAllowance = new BigNumber(allowance);
+    const bnAmount = new BigNumber(params.request.fromAmount);
+
+    if (!allowance || bnAmount.gt(bnAllowance)) {
+      const evmApi = this.chainService.getEvmApi(this.chain());
+      const inputTokenContract = getERC20Contract(fromAssetAddress, evmApi);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
+      const allowanceCall = inputTokenContract.methods.allowance(params.request.address, '0xeb70c2E0c0DCD6A6187D75b55AFc25b3B3ebE5a2');
+
+      const gasPrice = await evmApi.api.eth.getGasPrice();
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
+      const estimatedGas = (await allowanceCall.estimateGas()) as number;
+
+      const fee: SwapFeeInfo = {
+        feeComponent: [{
+          feeType: SwapFeeType.NETWORK_FEE,
+          amount: (estimatedGas * parseInt(gasPrice)).toString(),
+          tokenSlug: fromChainNativeTokenSlug
+        }],
+        defaultFeeToken: fromChainNativeTokenSlug, // token to pay transaction fee with
+        feeOptions: [fromChainNativeTokenSlug], // list of tokenSlug, always include defaultFeeToken
+        selectedFeeToken: fromChainNativeTokenSlug
+      };
+
+      const step: BaseStepDetail = {
+        type: SwapStepType.TOKEN_APPROVAL,
+        name: 'Authorize token approval'
+      };
+
+      return [step, fee];
+    }
+
+    return undefined;
   }
 
   async getSubmitStep (params: OptimalSwapPathParams): Promise<[BaseStepDetail, SwapFeeInfo] | undefined> {
@@ -122,8 +190,8 @@ export class StellaswapHandler implements SwapBaseInterface {
 
   private parseSwapPath (assetIn: string, assetOut: string, swapList: string[]): SwapRoute {
     try {
-      const swapAssets = this.chainService.getAssetByChainAndType(this.chain, [_AssetType.LOCAL, _AssetType.ERC20]);
-      const nativeToken = this.chainService.getNativeTokenInfo(this.chain);
+      const swapAssets = this.chainService.getAssetByChainAndType(this.chain(), [_AssetType.LOCAL, _AssetType.ERC20]);
+      const nativeToken = this.chainService.getNativeTokenInfo(this.chain());
 
       const swapAssetContractMap: Record<string, _ChainAsset> = Object.values(swapAssets).reduce((accumulator, asset) => {
         return {
@@ -164,8 +232,8 @@ export class StellaswapHandler implements SwapBaseInterface {
   async getSwapQuote (request: SwapRequest): Promise<SwapQuote | SwapError> {
     const fromAsset = this.chainService.getAssetBySlug(request.pair.from);
     const toAsset = this.chainService.getAssetBySlug(request.pair.to);
-    const fromAssetAddress = _isNativeToken(fromAsset) ? 'ETH' : _getContractAddressOfToken(fromAsset);
-    const toAssetAddress = _isNativeToken(toAsset) ? 'ETH' : _getContractAddressOfToken(toAsset);
+    const fromAssetAddress = _isNativeToken(fromAsset) ? STELLASWAP_NATIVE_TOKEN_ID : _getContractAddressOfToken(fromAsset);
+    const toAssetAddress = _isNativeToken(toAsset) ? STELLASWAP_NATIVE_TOKEN_ID : _getContractAddressOfToken(toAsset);
 
     const fromChain = this.chainService.getChainInfoByKey(fromAsset.originChain);
     const fromChainNativeTokenSlug = _getChainNativeTokenSlug(fromChain);
@@ -219,7 +287,7 @@ export class StellaswapHandler implements SwapBaseInterface {
     const { address, quote, recipient } = params;
     const pair = quote.pair;
     const fromAsset = this.chainService.getAssetBySlug(pair.from);
-    const chainInfo = this.chainService.getChainInfoByKey(this.chain);
+    const chainInfo = this.chainService.getChainInfoByKey(this.chain());
     const transactionConfig = await getEVMTransactionObject(chainInfo, address, '0x30Fa101871dE933f98cE55e3448C3f8A2015d09b', quote.fromAmount, false, this.chainService.getEvmApi(chainInfo.slug));
 
     const txData: SwapBaseTxData = {
@@ -263,11 +331,11 @@ export class StellaswapHandler implements SwapBaseInterface {
     return Promise.resolve([]);
   }
 
-  validateSwapRequest (request: SwapRequest): Promise<SwapEarlyValidation> {
+  async validateSwapRequest (request: SwapRequest): Promise<SwapEarlyValidation> {
     const fromAsset = this.chainService.getAssetBySlug(request.pair.from);
     const toAsset = this.chainService.getAssetBySlug(request.pair.to);
 
-    if (fromAsset.originChain !== this.chain || toAsset.originChain !== this.chain) {
+    if (fromAsset.originChain !== this.chain() || toAsset.originChain !== this.chain()) {
       return Promise.resolve({
         error: SwapErrorType.ASSET_NOT_SUPPORTED
       });
@@ -296,7 +364,7 @@ export class StellaswapHandler implements SwapBaseInterface {
 
       return Promise.resolve({
         metadata: {
-          chain: this.chainService.getChainInfoByKey(this.chain)
+          chain: this.chainService.getChainInfoByKey(this.chain())
         } as StellaswapPreValidationMetadata
       });
     } catch (e) {

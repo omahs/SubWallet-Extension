@@ -20,7 +20,7 @@ import BigNumber from 'bignumber.js';
 
 import { SubmittableExtrinsic } from '@polkadot/api/types';
 
-const HYDRADX_LOW_LIQUIDITY_THRESHOLD = 0.15;
+const HYDRADX_LOW_LIQUIDITY_THRESHOLD = 0.15; // in percentage
 
 const HYDRADX_SUBWALLET_REFERRAL_CODE = 'WALLET';
 const HYDRADX_SUBWALLET_REFERRAL_ACCOUNT = '7PCsCpkgsHdNaZhv79wCCQ5z97uxVbSeSCtDMUa1eZHKXy4a';
