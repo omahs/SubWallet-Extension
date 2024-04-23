@@ -1,0 +1,60 @@
+name: Web Runner
+on:
+  pull_request:
+    branches:
+      - web-runner-cron
+  push:
+    branches:
+      - web-runner-cron
+
+jobs:
+  master:
+    strategy:
+      matrix:
+        step: ['web-runner:build-zip']
+    name: ${{ matrix.step }}
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GH_PAT }}
+    - name: ${{ matrix.step }}
+      env:
+        CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
+        GH_PAT: ${{ secrets.GH_PAT }}
+        GH_RELEASE_GITHUB_API_TOKEN: ${{ secrets.GH_PAT }}
+        GH_RELEASE_FILES: master-build.zip,master-src.zip
+        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        TRANSAK_API_KEY: ${{ secrets.TRANSAK_API_KEY }}
+        COINBASE_PAY_ID: ${{ secrets.COINBASE_PAY_ID }}
+        BRANCH_NAME: master
+      run: |
+        yarn install --immutable | grep -v 'YN0013'
+        yarn ${{ matrix.step }}
+
+    - name: Publish to Cloudflare Pages
+      id: cloudflare_deployment
+      uses: cloudflare/pages-action@v1
+      with:
+        apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        projectName: ${{ vars.CLOUDFLARE_PAGES_CRON_PROJECT_NAME }}
+        gitHubToken: ${{ secrets.GH_AUTOMATION_TOKEN }}
+        branch: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref_name }}
+        directory: './packages/web-runner/build'
+        wranglerVersion: '3'
+
+    - name: Notify to Discord
+      uses: sarisia/actions-status-discord@v1
+      if: always()
+      with:
+        webhook: ${{ secrets.DISCORD_WEBHOOK }}
+        status: ${{ job.status }}
+        username: Extension Worker
+        title: ${{ github.workflow }}
+        description: |
+          Web-runner-cron for middleware service is completed.
+            - URL: ${{ steps.cloudflare_deployment.outputs.url }}
+            - Alias: ${{ steps.cloudflare_deployment.outputs.alias }}
