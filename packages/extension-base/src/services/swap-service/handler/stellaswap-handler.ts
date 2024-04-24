@@ -309,6 +309,27 @@ export class StellaswapHandler implements SwapBaseInterface {
     } as SwapSubmitStepData;
   }
 
+  async handleTokenApprovalStep (params: SwapSubmitParams): Promise<SwapSubmitStepData> {
+    const { address, quote, recipient } = params;
+    const pair = quote.pair;
+    const fromAsset = this.chainService.getAssetBySlug(pair.from);
+    const chainInfo = this.chainService.getChainInfoByKey(this.chain());
+    const evmApi = this.chainService.getEvmApi(this.chain());
+
+    const inputTokenContract = getERC20Contract(_getContractAddressOfToken(fromAsset), evmApi);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
+    const allowanceCall = inputTokenContract.methods.allowance(params.address, '0x30Fa101871dE933f98cE55e3448C3f8A2015d09b');
+
+    return {
+      txChain: fromAsset.originChain,
+      txData,
+      extrinsic: transactionConfig[0],
+      transferNativeAmount: _isNativeToken(fromAsset) ? quote.fromAmount : '0', // todo
+      extrinsicType: ExtrinsicType.SWAP,
+      chainType: ChainType.EVM
+    } as SwapSubmitStepData;
+  }
+
   handleSwapProcess (params: SwapSubmitParams): Promise<SwapSubmitStepData> {
     const { currentStep, process } = params;
     const type = process.steps[currentStep].type;
@@ -318,6 +339,8 @@ export class StellaswapHandler implements SwapBaseInterface {
         return Promise.reject(new TransactionError(BasicTxErrorType.UNSUPPORTED));
       case SwapStepType.XCM:
         return Promise.reject(new TransactionError(BasicTxErrorType.INTERNAL_ERROR));
+      case SwapStepType.TOKEN_APPROVAL:
+        return this.handleTokenApprovalStep();
       case SwapStepType.SET_FEE_TOKEN:
         return Promise.reject(new TransactionError(BasicTxErrorType.UNSUPPORTED));
       case SwapStepType.SWAP:
