@@ -18,15 +18,16 @@ import { fetchPoolTarget, getOptimalYieldPath, submitJoinYieldPool, validateYiel
 import { unlockDotCheckCanMint } from '@subwallet/extension-koni-ui/messaging/campaigns';
 import { DEFAULT_YIELD_PROCESS, EarningActionType, earningReducer } from '@subwallet/extension-koni-ui/reducer';
 import { store } from '@subwallet/extension-koni-ui/stores';
+import { Theme } from '@subwallet/extension-koni-ui/themes';
 import { EarnParams, FormCallbacks, FormFieldData, ThemeProps } from '@subwallet/extension-koni-ui/types';
 import { convertFieldToObject, getBannerButtonIcon, isAccountAll, parseNominations, reformatAddress, simpleCheckForm } from '@subwallet/extension-koni-ui/utils';
-import { ActivityIndicator, Button, ButtonProps, Form, Icon, ModalContext, Number, Switch, Tag, Web3Block } from '@subwallet/react-ui';
+import { ActivityIndicator, Button, ButtonProps, Form, Icon, ModalContext, Number, Switch, Tag, Tooltip, Web3Block } from '@subwallet/react-ui';
 import BigN from 'bignumber.js';
 import CN from 'classnames';
 import { CheckCircle, GearSix, Info, PlusCircle } from 'phosphor-react';
 import React, { useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { isEthereumAddress } from '@polkadot/util-crypto';
 
@@ -54,10 +55,12 @@ const Component = () => {
     setBackProps, setSubHeaderRightButtons } = useTransactionContext<EarnParams>();
 
   const { slug } = defaultData;
+  const { token } = useTheme() as Theme;
 
   const { accounts, isAllAccount } = useSelector((state) => state.accountState);
   const chainInfoMap = useSelector((state) => state.chainStore.chainInfoMap);
   const poolInfoMap = useSelector((state) => state.earning.poolInfoMap);
+  const positionInfoSet = useSelector((state) => state.earning.yieldPositions);
   const poolTargetsMap = useSelector((state) => state.earning.poolTargetsMap);
   const chainAsset = useSelector((state) => state.assetRegistry.assetRegistry);
   const priceMap = useSelector((state) => state.price.priceMap);
@@ -89,7 +92,6 @@ const Component = () => {
   const poolInfo = poolInfoMap[slug];
   const poolType = poolInfo?.type || '';
   const poolChain = poolInfo?.chain || '';
-
   const [isBalanceReady, setIsBalanceReady] = useState<boolean>(true);
   const [forceFetchValidator, setForceFetchValidator] = useState(false);
   const [targetLoading, setTargetLoading] = useState(false);
@@ -101,7 +103,7 @@ const Component = () => {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [checkMintLoading, setCheckMintLoading] = useState(false);
   const [isFormInvalid, setIsFormInvalid] = useState(true);
-  const [stateAutoClaimManage, setAutoStateClaimManage] = useState<PalletNominationPoolsClaimPermission>(defaultData.claimPermissionless || (compound as NominationYieldPositionInfo)?.claimPermissionStatus || PalletNominationPoolsClaimPermission.PERMISSIONED);
+  const [stateAutoClaimManage, setAutoStateClaimManage] = useState<PalletNominationPoolsClaimPermission>(PalletNominationPoolsClaimPermission.PERMISSIONED);
 
   const chainState = useFetchChainState(poolInfo?.chain || '');
 
@@ -660,8 +662,12 @@ const Component = () => {
   }, []);
 
   const handleEnableAutoCompoundSwitch = useCallback((checked: boolean, event: React.MouseEvent<HTMLButtonElement>) => {
-    setAutoStateClaimManage(checked ? PalletNominationPoolsClaimPermission.PERMISSIONLESS_COMPOUND : PalletNominationPoolsClaimPermission.PERMISSIONED);
-  }, []);
+    const positionInfo = positionInfoSet.find((position) => (position as NominationYieldPositionInfo)?.claimPermissionStatus && slug === position.slug && position.address === fromValue);
+    const currentClaimStatus = (positionInfo as NominationYieldPositionInfo)?.claimPermissionStatus;
+    const autoStateClaim = checked ? (currentClaimStatus === PalletNominationPoolsClaimPermission.PERMISSIONED ? PalletNominationPoolsClaimPermission.PERMISSIONLESS_COMPOUND : currentClaimStatus) : PalletNominationPoolsClaimPermission.PERMISSIONED;
+
+    setAutoStateClaimManage(autoStateClaim);
+  }, [fromValue, positionInfoSet, slug]);
 
   useEffect(() => {
     if (poolChain) {
@@ -752,6 +758,12 @@ const Component = () => {
       form.setFieldValue('from', accountSelectorList[0].address);
     }
   }, [accountSelectorList, form, fromValue]);
+
+  useEffect(() => {
+    const positionInfo = positionInfoSet.find((position) => (position as NominationYieldPositionInfo)?.claimPermissionStatus && slug === position.slug && position.address === fromValue);
+
+    setAutoStateClaimManage((positionInfo as NominationYieldPositionInfo)?.claimPermissionStatus || PalletNominationPoolsClaimPermission.PERMISSIONED);
+  }, [fromValue, positionInfoSet, slug]);
 
   useEffect(() => {
     if (currentStep === 0) {
@@ -1009,12 +1021,19 @@ const Component = () => {
                           <div className={'__auto-claim-state-item'}>
                             <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                               <div className={'__left-item-label'}>{t('Auto claim rewards')}</div>
-                              <Icon
-                                className={'__left-item-info-icon'}
-                                customSize={'16px'}
-                                phosphorIcon={Info}
-                                weight={'fill'}
-                              />
+                              <Tooltip
+                                placement={'top'}
+                                title={t('Your rewards will be automatically claimed to your wallet')}
+                              >
+                                <div>
+                                  <Icon
+                                    className={'__left-item-info-icon'}
+                                    customSize={'16px'}
+                                    phosphorIcon={Info}
+                                    weight={'fill'}
+                                  />
+                                </div>
+                              </Tooltip>
                             </div>
                             <Switch
                               checked={stateAutoClaimManage !== PalletNominationPoolsClaimPermission.PERMISSIONED}
@@ -1044,7 +1063,7 @@ const Component = () => {
                                 >
                                   <Icon
                                     customSize={'20px'}
-                                    iconColor={'#A6A6A6'}
+                                    iconColor={token['gray-5']}
                                     phosphorIcon={GearSix}
                                   />
                                   <span className={'__manage-auto-compound-label'}>
@@ -1112,6 +1131,7 @@ const Component = () => {
       <EarningManageClaimPermissions
         currentMode={stateAutoClaimManage}
         onSubmit={handleSetModeAutoCompound}
+        slug={slug}
       />
     </>
   );
@@ -1172,7 +1192,8 @@ const Earn = styled(Wrapper)<Props>(({ theme: { token } }: Props) => {
       backgroundColor: token.colorBgSecondary,
       borderRadius: 8,
       justifyContent: 'space-between',
-      transition: 'height .3s ease-in-out'
+      transition: 'height .3s ease-in-out',
+      marginBottom: token.marginSM
     },
 
     '.ant-web3-block': {

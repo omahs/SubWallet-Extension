@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ExtrinsicType } from '@subwallet/extension-base/background/KoniTypes';
-import { PalletNominationPoolsClaimPermission } from '@subwallet/extension-base/types';
+import { NominationYieldPositionInfo, PalletNominationPoolsClaimPermission } from '@subwallet/extension-base/types';
 import { detectTranslate } from '@subwallet/extension-base/utils';
 import { InstructionItem } from '@subwallet/extension-koni-ui/components';
 import { EARNING_MANAGE_AUTO_CLAIM_MODAL, SET_CLAIM_PERMISSIONS } from '@subwallet/extension-koni-ui/constants';
-import { usePreCheckAction } from '@subwallet/extension-koni-ui/hooks';
+import { usePreCheckAction, useSelector } from '@subwallet/extension-koni-ui/hooks';
 import { RootState } from '@subwallet/extension-koni-ui/stores';
 import { Theme, ThemeProps } from '@subwallet/extension-koni-ui/types';
 import { getBannerButtonIcon } from '@subwallet/extension-koni-ui/utils';
@@ -15,7 +15,6 @@ import CN from 'classnames';
 import { CheckCircle, XCircle } from 'phosphor-react';
 import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSelector } from 'react-redux';
 import styled, { useTheme } from 'styled-components';
 
 interface Props extends ThemeProps {
@@ -23,6 +22,7 @@ interface Props extends ThemeProps {
   currentMode: PalletNominationPoolsClaimPermission;
   blockWatchOnly?: boolean;
   setIsLoading?: (isLoading: boolean) => void;
+  slug: string;
 }
 
 const SET_CLAIM_PERMISSIONS_LIST = Object.entries(SET_CLAIM_PERMISSIONS);
@@ -36,8 +36,18 @@ const Component: React.FC<Props> = (props: Props) => {
   const onPreCheck = usePreCheckAction(currentAccount?.address, true, earningMessageWatchOnly);
   const { t } = useTranslation();
   const { token } = useTheme() as Theme;
+  const positionInfoSet = useSelector((state) => state.earning.yieldPositions);
   const [modeAutoClaim, setModeAutoClaim] = useState<PalletNominationPoolsClaimPermission>(props.currentMode || PalletNominationPoolsClaimPermission.PERMISSIONLESS_COMPOUND);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDisabled, setIsDisabled] = useState(false);
+
+  useEffect(() => {
+    const positionInfo = positionInfoSet.find((position) => (position as NominationYieldPositionInfo)?.claimPermissionStatus && props.slug === position.slug && position.address === currentAccount?.address);
+
+    const statusAutoClaim = (positionInfo as NominationYieldPositionInfo)?.claimPermissionStatus || PalletNominationPoolsClaimPermission.PERMISSIONED;
+
+    setIsDisabled(modeAutoClaim === statusAutoClaim);
+  }, [currentAccount?.address, modeAutoClaim, positionInfoSet, props.slug]);
 
   const titleModeItem = useCallback((mode: PalletNominationPoolsClaimPermission) => {
     if (mode === PalletNominationPoolsClaimPermission.PERMISSIONED) {
@@ -68,9 +78,9 @@ const Component: React.FC<Props> = (props: Props) => {
 
   const onSelectAutoClaimMode = useCallback((key: string) => {
     return () => {
-      setModeAutoClaim(key as PalletNominationPoolsClaimPermission);
+      !isLoading && setModeAutoClaim(key as PalletNominationPoolsClaimPermission);
     };
-  }, []);
+  }, [isLoading]);
 
   const onSubmitAutoClaimMode = useCallback(() => {
     setIsLoading(true);
@@ -112,6 +122,7 @@ const Component: React.FC<Props> = (props: Props) => {
         </Button>
         <Button
           block={true}
+          disabled={isDisabled}
           icon={
             <Icon
               phosphorIcon={CheckCircle}
@@ -125,7 +136,7 @@ const Component: React.FC<Props> = (props: Props) => {
         </Button>
       </div>
     );
-  }, [isLoading, onCancelModal, t, props.blockWatchOnly, onPreCheck, onSubmitAutoClaimMode]);
+  }, [isLoading, onCancelModal, t, isDisabled, props.blockWatchOnly, onPreCheck, onSubmitAutoClaimMode]);
 
   return (
     <SwModal

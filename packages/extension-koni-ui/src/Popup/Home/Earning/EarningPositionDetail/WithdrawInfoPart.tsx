@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { _ChainAsset } from '@subwallet/chain-list/types';
-import { UnstakingInfo, UnstakingStatus, YieldPoolInfo } from '@subwallet/extension-base/types';
+import { NominationYieldPositionInfo, PalletNominationPoolsClaimPermission, UnstakingInfo, UnstakingStatus, YieldPoolInfo, YieldPositionInfo } from '@subwallet/extension-base/types';
 import { BN_ZERO } from '@subwallet/extension-base/utils';
 import { CollapsiblePanel, MetaInfo } from '@subwallet/extension-koni-ui/components';
 import { CANCEL_UN_STAKE_TRANSACTION, DEFAULT_CANCEL_UN_STAKE_PARAMS, DEFAULT_WITHDRAW_PARAMS, WITHDRAW_TRANSACTION } from '@subwallet/extension-koni-ui/constants';
@@ -21,12 +21,13 @@ import { useLocalStorage } from 'usehooks-ts';
 type Props = ThemeProps & {
   unstakings: UnstakingInfo[];
   poolInfo: YieldPoolInfo;
+  compound: YieldPositionInfo;
   inputAsset: _ChainAsset;
   transactionFromValue: string;
   transactionChainValue: string;
 };
 
-function Component ({ className, inputAsset, poolInfo, transactionChainValue, transactionFromValue, unstakings }: Props) {
+function Component ({ className, compound, inputAsset, poolInfo, transactionChainValue, transactionFromValue, unstakings }: Props) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { slug } = poolInfo;
@@ -103,6 +104,10 @@ function Component ({ className, inputAsset, poolInfo, transactionChainValue, tr
     });
     navigate('/transaction/withdraw');
   }, [navigate, setWithdrawStorage, slug, transactionChainValue, transactionFromValue]);
+
+  const statusClaimPermission = useMemo(() => {
+    return (compound as NominationYieldPositionInfo).claimPermissionStatus;
+  }, [compound]);
 
   const onCancelWithDraw = useCallback(() => {
     setCancelUnStakeStorage({
@@ -233,6 +238,7 @@ function Component ({ className, inputAsset, poolInfo, transactionChainValue, tr
             />
             <Button
               onClick={onWithDraw}
+              schema={statusClaimPermission && statusClaimPermission === PalletNominationPoolsClaimPermission.PERMISSIONLESS_WITHDRAW ? 'secondary' : 'primary'}
               size='xs'
             >
               {t('Withdraw')}
@@ -316,6 +322,14 @@ export const WithdrawInfoPart = styled(Component)<Props>(({ theme: { token } }: 
       fontSize: `${token.fontSizeHeading5}px !important`,
       fontWeight: 'inherit !important',
       lineHeight: token.lineHeightHeading5
+    }
+  },
+
+  '.-schema-secondary': {
+    backgroundColor: token['gray-2'],
+    transition: 'all 0.1s',
+    '&:hover': {
+      backgroundColor: token['gray-3']
     }
   }
 }));

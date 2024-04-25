@@ -17,7 +17,7 @@ import { WithdrawInfoPart } from '@subwallet/extension-koni-ui/Popup/Home/Earnin
 import { Theme } from '@subwallet/extension-koni-ui/themes';
 import { EarningEntryParam, EarningEntryView, EarningPositionDetailParam, ThemeProps } from '@subwallet/extension-koni-ui/types';
 import { getBannerButtonIcon, isAccountAll } from '@subwallet/extension-koni-ui/utils';
-import { BackgroundIcon, Button, ButtonProps, Icon, ModalContext, Number, Switch, Tag, Web3Block } from '@subwallet/react-ui';
+import { BackgroundIcon, Button, ButtonProps, Icon, ModalContext, Number, Switch, Tag, Tooltip, Web3Block } from '@subwallet/react-ui';
 import BigN from 'bignumber.js';
 import CN from 'classnames';
 import { GearSix, Info, MinusCircle, Plus, PlusCircle } from 'phosphor-react';
@@ -291,12 +291,19 @@ function Component ({ compound,
                       weight='fill'
                     />
                     <div className={'__left-item-label'}>{t('Auto claim rewards')}</div>
-                    <Icon
-                      className={'__left-item-info-icon'}
-                      customSize={'16px'}
-                      phosphorIcon={Info}
-                      weight={'fill'}
-                    />
+                    <Tooltip
+                      placement={'top'}
+                      title={t('Your rewards will be automatically claimed to your wallet')}
+                    >
+                      <div>
+                        <Icon
+                          className={'__left-item-info-icon'}
+                          customSize={'16px'}
+                          phosphorIcon={Info}
+                          weight={'fill'}
+                        />
+                      </div>
+                    </Tooltip>
                   </div>
                   <Switch
                     checked={stateAutoClaimManage !== PalletNominationPoolsClaimPermission.PERMISSIONED}
@@ -329,7 +336,7 @@ function Component ({ compound,
                       >
                         <Icon
                           customSize={'20px'}
-                          iconColor={'#A6A6A6'}
+                          iconColor={token['gray-5']}
                           phosphorIcon={GearSix}
                         />
                         <span className={'__manage-auto-compound-label'}>
@@ -388,6 +395,7 @@ function Component ({ compound,
 
         <WithdrawInfoPart
           className={'__withdraw-info-part'}
+          compound={compound}
           inputAsset={inputAsset}
           poolInfo={poolInfo}
           transactionChainValue={transactionChainValue}
@@ -424,6 +432,7 @@ function Component ({ compound,
         currentMode={stateAutoClaimManage}
         onSubmit={handleSetModeAutoCompound}
         setIsLoading={setIsLoading}
+        slug={compound.slug}
       />}
     </>
   );
