@@ -1116,6 +1116,10 @@ const Component = () => {
     return false;
   }, [altChain, checkChainConnected]);
 
+  const isSwapHydraDX = useMemo(() => {
+    return currentQuote && [SwapProviderId.HYDRADX_TESTNET, SwapProviderId.HYDRADX_MAINNET].includes(currentQuote?.provider.id);
+  }, [currentQuote]);
+
   return (
     <>
       <>
@@ -1449,71 +1453,139 @@ const Component = () => {
               </>
             </div>
 
-            {
-              !!currentQuote && !handleRequestLoading && !isFormInvalid && (
-                <MetaInfo
-                  className={CN('__quote-fee-info-block')}
-                  hasBackgroundWrapper
-                  labelColorScheme={'gray'}
-                  spaceSize={'xs'}
-                  valueColorScheme={'gray'}
-                >
-                  <MetaInfo.Number
-                    className={'__total-fee-value'}
-                    decimals={0}
-                    label={t('Estimated fee')}
-                    onClickValue={onToggleFeeDetails}
-                    prefix={'$'}
-                    suffixNode={
-                      <Icon
-                        className={'__estimated-fee-button'}
-                        customSize={'20px'}
-                        phosphorIcon={isViewFeeDetails ? CaretUp : CaretDown}
-                      />
+            { !isSwapHydraDX
+              ? (
+                !!currentQuote && !handleRequestLoading && !isFormInvalid && (
+                  <MetaInfo
+                    className={CN('__quote-fee-info-block')}
+                    hasBackgroundWrapper
+                    labelColorScheme={'gray'}
+                    spaceSize={'xs'}
+                    valueColorScheme={'gray'}
+                  >
+                    <MetaInfo.Number
+                      className={'__total-fee-value'}
+                      decimals={0}
+                      label={t('Estimated fee')}
+                      onClickValue={onToggleFeeDetails}
+                      prefix={'$'}
+                      suffixNode={
+                        <Icon
+                          className={'__estimated-fee-button'}
+                          customSize={'20px'}
+                          phosphorIcon={isViewFeeDetails ? CaretUp : CaretDown}
+                        />
+                      }
+                      value={estimatedFeeValue}
+                    />
+
+                    {
+                      isViewFeeDetails && (
+                        <div className={'__quote-fee-details-block'}>
+                          {feeItems.map((item) => (
+                            <MetaInfo.Number
+                              decimals={0}
+                              key={item.type}
+                              label={t(item.label)}
+                              prefix={item.prefix}
+                              suffix={item.suffix}
+                              value={item.value}
+                            />
+                          ))}
+                        </div>
+                      )
                     }
-                    value={estimatedFeeValue}
-                  />
 
-                  {
-                    isViewFeeDetails && (
-                      <div className={'__quote-fee-details-block'}>
-                        {feeItems.map((item) => (
-                          <MetaInfo.Number
-                            decimals={0}
-                            key={item.type}
-                            label={t(item.label)}
-                            prefix={item.prefix}
-                            suffix={item.suffix}
-                            value={item.value}
-                          />
-                        ))}
+                    <div className={'__separator'}></div>
+                    <div className={'__fee-paid-wrapper'}>
+                      <div className={'__fee-paid-label'}>Fee paid in</div>
+                      <div
+                        className={'__fee-paid-token'}
+                        onClick={openChooseFeeToken}
+                      >
+                        <Logo
+                          className='token-logo'
+                          isShowSubLogo={false}
+                          shape='circle'
+                          size={24}
+                          token={feeAssetInfo && feeAssetInfo.slug.toLowerCase()}
+                        />
+                        <div className={'__fee-paid-token-symbol'}>{_getAssetSymbol(feeAssetInfo)}</div>
+                        <Icon
+                          className={'__edit-token'}
+                          customSize={'20px'}
+                          phosphorIcon={PencilSimpleLine}
+                        />
                       </div>
-                    )
-                  }
-
-                  <div className={'__separator'}></div>
-                  <div className={'__fee-paid-wrapper'}>
-                    <div className={'__fee-paid-label'}>Fee paid in</div>
-                    <div
-                      className={'__fee-paid-token'}
-                      onClick={openChooseFeeToken}
-                    >
-                      <Logo
-                        className='token-logo'
-                        isShowSubLogo={false}
-                        shape='circle'
-                        size={24}
-                        token={feeAssetInfo && feeAssetInfo.slug.toLowerCase()}
-                      />
-                      <div className={'__fee-paid-token-symbol'}>{_getAssetSymbol(feeAssetInfo)}</div>
-                      <Icon
-                        className={'__edit-token'}
-                        customSize={'20px'}
-                        phosphorIcon={PencilSimpleLine}
-                      />
                     </div>
-                  </div>
-                </MetaInfo>
+                  </MetaInfo>
+                ))
+              : (
+                !!currentQuote && !handleRequestLoading && !isFormInvalid && (
+                  <MetaInfo
+                    className={CN('__quote-fee-info-block')}
+                    hasBackgroundWrapper
+                    labelColorScheme={'gray'}
+                    spaceSize={'xs'}
+                    valueColorScheme={'gray'}
+                  >
+
+                    <div className={'__quote-fee-block'}>
+                      {feeItems.map((item) => (
+                        item.type === SwapFeeType.NETWORK_FEE
+                          ? (
+                            <>
+                              <MetaInfo.Number
+                                decimals={0}
+                                key={item.type}
+                                label={t(item.label)}
+                                prefix={item.prefix}
+                                suffix={item.suffix}
+                                value={item.value}
+                              />
+                              <div
+                                className={'__fee-paid-token'}
+                                onClick={openChooseFeeToken}
+                              >
+                                <Logo
+                                  className='token-logo'
+                                  isShowSubLogo={false}
+                                  shape='circle'
+                                  size={24}
+                                  token={feeAssetInfo && feeAssetInfo.slug.toLowerCase()}
+                                />
+                                <div className={'__fee-paid-token-symbol'}>{_getAssetSymbol(feeAssetInfo)}</div>
+                                <Icon
+                                  className={'__edit-token'}
+                                  customSize={'20px'}
+                                  phosphorIcon={PencilSimpleLine}
+                                />
+                              </div>
+                            </>
+                          )
+                          : (
+                            <MetaInfo.Number
+                              decimals={0}
+                              key={item.type}
+                              label={t(item.label)}
+                              prefix={item.prefix}
+                              suffix={item.suffix}
+                              value={item.value}
+                            />
+                          )
+                      ))}
+                    </div>
+
+                    <div className={'__separator'}></div>
+                    <MetaInfo.Number
+                      className={'__total-fee-value'}
+                      decimals={0}
+                      label={t('Estimated fee')}
+                      prefix={'$'}
+                      value={estimatedFeeValue}
+                    />
+                  </MetaInfo>
+                )
               )
             }
           </>
@@ -1581,15 +1653,16 @@ const Swap = styled(Wrapper)<Props>(({ theme: { token } }: Props) => {
       color: token.colorTextTertiary,
       display: 'flex',
       justifyContent: 'space-between',
-      alignItems: 'center',
-      cursor: 'pointer'
+      alignItems: 'center'
     },
     '.__xcm-notification': {
       marginBottom: token.marginSM
     },
     '.__fee-paid-token': {
       display: 'flex',
-      alignItems: 'center'
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      cursor: 'pointer'
     },
     '.__fee-paid-token-symbol': {
       paddingLeft: 8,
@@ -1774,6 +1847,27 @@ const Swap = styled(Wrapper)<Props>(({ theme: { token } }: Props) => {
     '.__quote-fee-details-block': {
       marginTop: token.marginXS,
       paddingLeft: token.paddingXS,
+      fontSize: token.fontSize,
+      lineHeight: token.lineHeight,
+      fontWeight: token.bodyFontWeight,
+      color: token.colorWhite,
+
+      '.ant-number-integer': {
+        color: `${token.colorWhite} !important`,
+        fontSize: 'inherit !important',
+        fontWeight: 'inherit !important',
+        lineHeight: 'inherit'
+      },
+
+      '.ant-number-decimal, .ant-number-prefix': {
+        color: `${token.colorWhite} !important`,
+        fontSize: `${token.fontSize}px !important`,
+        fontWeight: 'inherit !important',
+        lineHeight: token.colorTextLight2
+      }
+    },
+    '.__quote-fee-block': {
+      marginTop: token.marginXS,
       fontSize: token.fontSize,
       lineHeight: token.lineHeight,
       fontWeight: token.bodyFontWeight,
