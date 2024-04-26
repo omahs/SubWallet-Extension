@@ -18,13 +18,29 @@ type Props = ThemeProps & {
 
 export const EarningPoolDetailModalId = 'earningPoolDetailModalId';
 
-function Component ({ className, detailItem, maxPoolMembersValue, onCancel }: Props): React.ReactElement<Props> {
+function Component ({ className, detailItem, maxPoolMembersValue = 100, onCancel }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { address = '', bondedAmount, decimals, isProfitable, memberCounter = 0, name, state, symbol } = detailItem || {};
 
   const earningStatus: EarningStatus = useMemo(() => {
     return isProfitable ? EarningStatus.EARNING_REWARD : EarningStatus.NOT_EARNING;
   }, [isProfitable]);
+
+  const ratePercent = useMemo(() => {
+    const rate = maxPoolMembersValue && (memberCounter / maxPoolMembersValue);
+
+    if (rate) {
+      if (rate < 0.9) {
+        return 'default';
+      } else if (rate >= 0.9 && rate < 1) {
+        return 'gold';
+      } else {
+        return 'danger';
+      }
+    }
+
+    return undefined;
+  }, [maxPoolMembersValue, memberCounter]);
 
   return (
     <SwModal
@@ -79,12 +95,20 @@ function Component ({ className, detailItem, maxPoolMembersValue, onCancel }: Pr
         {
           maxPoolMembersValue && (
             <MetaInfo.Number
-              label={t('Delegators')}
+              label={t('Members')}
               value={maxPoolMembersValue}
               valueColorSchema={'even-odd'}
             />
           )
         }
+
+        {maxPoolMembersValue && ratePercent && <MetaInfo.Default
+          label={'Members'}
+          labelAlign='top'
+          valueColorSchema={`${ratePercent}`}
+        >
+          {`${memberCounter} / ${maxPoolMembersValue}`}
+        </MetaInfo.Default>}
       </MetaInfo>
     </SwModal>
   );
@@ -92,7 +116,6 @@ function Component ({ className, detailItem, maxPoolMembersValue, onCancel }: Pr
 
 const EarningPoolDetailModal = styled(Component)<Props>(({ theme: { token } }: Props) => {
   return ({
-
   });
 });
 

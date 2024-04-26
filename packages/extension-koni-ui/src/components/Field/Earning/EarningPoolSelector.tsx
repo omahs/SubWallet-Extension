@@ -137,6 +137,11 @@ const Component = (props: Props, ref: ForwardedRef<InputRef>) => {
           return true;
         }
       })
+      .map((item) => {
+        const disabled = item.isCrowded;
+
+        return { ...item, disabled };
+      })
       .sort((a: NominationPoolDataType, b: NominationPoolDataType) => {
         const isSubwalletA = a.name && a.name.includes('SubWallet');
         const isSubwalletB = b.name && b.name.includes('SubWallet');
@@ -204,7 +209,7 @@ const Component = (props: Props, ref: ForwardedRef<InputRef>) => {
         ? (
           <Tooltip
             placement={'top'}
-            title={t('This pool has reached the maximum number of members/nominators. Select another to continue')}
+            title={t('This pool has reached the maximum number of members. Select another to continue')}
           >
             <div className={'__pool-item-wrapper'}>
               <StakingPoolItem
@@ -402,9 +407,6 @@ const EarningPoolSelector = styled(forwardRef(Component))<Props>(({ theme: { tok
 
     '.ant-sw-modal-content': {
       paddingBottom: token.padding
-    },
-    '.__pool-item-wrapper': {
-      marginBottom: token.marginXS
     },
 
     '&.pool-selector-input': {
