@@ -16,7 +16,7 @@ import { t } from 'i18next';
 
 import { isEthereumAddress } from '@polkadot/util-crypto';
 
-export interface SwapBaseInterface {
+export interface SwapHandlerInterface {
   getSwapQuote: (request: SwapRequest) => Promise<SwapQuote | SwapError>;
   generateOptimalProcess: (params: OptimalSwapPathParams) => Promise<OptimalSwapPath>;
 
@@ -31,6 +31,7 @@ export interface SwapBaseInterface {
   isTestnet: boolean;
   isReady?: boolean;
   init?: () => Promise<void>;
+  chain?: () => string;
 }
 
 export interface SwapBaseHandlerInitParams {

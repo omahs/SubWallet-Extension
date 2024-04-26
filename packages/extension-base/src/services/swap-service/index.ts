@@ -8,7 +8,7 @@ import KoniState from '@subwallet/extension-base/koni/background/handlers/State'
 import { ServiceStatus, ServiceWithProcessInterface, StoppableServiceInterface } from '@subwallet/extension-base/services/base/types';
 import { ChainService } from '@subwallet/extension-base/services/chain-service';
 import { EventService } from '@subwallet/extension-base/services/event-service';
-import { SwapBaseInterface } from '@subwallet/extension-base/services/swap-service/handler/base-handler';
+import { SwapHandlerInterface } from '@subwallet/extension-base/services/swap-service/handler/base-handler';
 import { ChainflipSwapHandler } from '@subwallet/extension-base/services/swap-service/handler/chainflip-handler';
 import { HydradxHandler } from '@subwallet/extension-base/services/swap-service/handler/hydradx-handler';
 import { StellaswapHandler } from '@subwallet/extension-base/services/swap-service/handler/stellaswap-handler';
@@ -22,7 +22,7 @@ export class SwapService implements ServiceWithProcessInterface, StoppableServic
   private eventService: EventService;
   private readonly chainService: ChainService;
   private swapPairSubject: BehaviorSubject<SwapPair[]> = new BehaviorSubject<SwapPair[]>([]);
-  private handlers: Record<string, SwapBaseInterface> = {};
+  private handlers: Record<string, SwapHandlerInterface> = {};
 
   startPromiseHandler: PromiseHandler<void> = createPromiseHandler();
   stopPromiseHandler: PromiseHandler<void> = createPromiseHandler();
@@ -36,6 +36,10 @@ export class SwapService implements ServiceWithProcessInterface, StoppableServic
 
   private async askProvidersForQuote (request: SwapRequest): Promise<QuoteAskResponse[]> {
     const availableQuotes: QuoteAskResponse[] = [];
+
+    // const swapPair = request.pair;
+    // const fromAssetInfo = this.chainService.getAssetBySlug(swapPair.from);
+    // const toAssetInfo = this.chainService.getAssetBySlug(swapPair.to);
 
     await Promise.all(Object.values(this.handlers).map(async (handler) => {
       if (handler.init && handler.isReady === false) {
@@ -160,13 +164,13 @@ export class SwapService implements ServiceWithProcessInterface, StoppableServic
 
           break;
 
-        case SwapProviderId.HYDRADX_TESTNET:
-          this.handlers[providerId] = new HydradxHandler(this.chainService, this.state.balanceService);
-          break;
-
-        case SwapProviderId.HYDRADX_MAINNET:
-          this.handlers[providerId] = new HydradxHandler(this.chainService, this.state.balanceService, false);
-          break;
+        // case SwapProviderId.HYDRADX_TESTNET:
+        //   this.handlers[providerId] = new HydradxHandler(this.chainService, this.state.balanceService);
+        //   break;
+        //
+        // case SwapProviderId.HYDRADX_MAINNET:
+        //   this.handlers[providerId] = new HydradxHandler(this.chainService, this.state.balanceService, false);
+        //   break;
         case SwapProviderId.STELLASWAP_TESTNET:
           this.handlers[providerId] = new StellaswapHandler(this.chainService, this.state.balanceService);
           break;
@@ -174,7 +178,7 @@ export class SwapService implements ServiceWithProcessInterface, StoppableServic
           this.handlers[providerId] = new StellaswapHandler(this.chainService, this.state.balanceService, false);
           break;
         default:
-          throw new Error('Unsupported provider');
+          break;
       }
     });
   }

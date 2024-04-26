@@ -12,13 +12,13 @@ import { getERC20Contract } from '@subwallet/extension-base/koni/api/tokens/evm/
 import { BalanceService } from '@subwallet/extension-base/services/balance-service';
 import { ChainService } from '@subwallet/extension-base/services/chain-service';
 import { _getChainNativeTokenSlug, _getContractAddressOfToken, _isNativeToken, _isSmartContractToken } from '@subwallet/extension-base/services/chain-service/utils';
-import { SwapBaseHandler, SwapBaseInterface } from '@subwallet/extension-base/services/swap-service/handler/base-handler';
+import { SwapBaseHandler, SwapHandlerInterface } from '@subwallet/extension-base/services/swap-service/handler/base-handler';
 import { calculateSwapRate, getEarlyHydradxValidationError, SWAP_QUOTE_TIMEOUT_MAP } from '@subwallet/extension-base/services/swap-service/utils';
 import { BaseStepDetail } from '@subwallet/extension-base/types/service-base';
 import { HydradxPreValidationMetadata, OptimalSwapPath, OptimalSwapPathParams, StellaswapPreValidationMetadata, SwapBaseTxData, SwapEarlyValidation, SwapErrorType, SwapFeeInfo, SwapFeeType, SwapProviderId, SwapQuote, SwapRequest, SwapRoute, SwapStepType, SwapSubmitParams, SwapSubmitStepData, ValidateSwapProcessParams } from '@subwallet/extension-base/types/swap';
 import { AxiosError } from 'axios';
 import BigNumber from 'bignumber.js';
-import { AbstractSigner, ethers } from 'ethers';
+import { AbstractSigner, ethers, Provider, TransactionRequest, TypedDataDomain, TypedDataField, VoidSigner } from 'ethers';
 
 // const STELLASWAP_LOW_LIQUIDITY_THRESHOLD = 0.15; // in percentage
 
@@ -59,7 +59,17 @@ interface StellaswapTrade {
 
 const STELLASWAP_NATIVE_TOKEN_ID = 'ETH';
 
-export class StellaswapHandler implements SwapBaseInterface {
+class SWMockSigner extends VoidSigner {
+  _isSigner = true;
+
+  override signTransaction (tx: TransactionRequest): Promise<string> {
+    console.log('tx here bitch', tx);
+
+    return Promise.resolve('');
+  }
+}
+
+export class StellaswapHandler implements SwapHandlerInterface {
   private swapBaseHandler: SwapBaseHandler;
   isTestnet: boolean;
 
@@ -74,13 +84,20 @@ export class StellaswapHandler implements SwapBaseInterface {
     this.isTestnet = isTestnet;
   }
 
-  getMockSigner (address: string, providerUrl: string): AbstractSigner {
-    const providerObj = new ethers.JsonRpcProvider(providerUrl);
+  getMockSigner (address: string): AbstractSigner {
+    const currentHttpProvider = this.chainService.getChainCurrentProviderByKey('moonbeam').endpoint.replace('wss://', 'https://');
+    const providerObj = new ethers.JsonRpcProvider(currentHttpProvider);
 
+    // const provider = new ethers.JsonRpcProvider(currentHttpProvider);
     // @ts-ignore
     providerObj._isProvider = true;
+    // @ts-ignore
+    providerObj._isSigner = true;
 
-    return new ethers.VoidSigner(address, providerObj);
+    return new SWMockSigner(address, providerObj);
+    //
+    //
+    // return new ethers.VoidSigner(address, providerObj);
   }
 
   chain = (): string => {
@@ -114,7 +131,7 @@ export class StellaswapHandler implements SwapBaseInterface {
   generateOptimalProcess (params: OptimalSwapPathParams): Promise<OptimalSwapPath> {
     return this.swapBaseHandler.generateOptimalProcess(params, [
       this.getApproveStep.bind(this),
-      this.getSubmitStep
+      this.getSubmitStep.bind(this)
     ]);
   }
 
@@ -135,8 +152,7 @@ export class StellaswapHandler implements SwapBaseInterface {
       return Promise.resolve(undefined);
     }
 
-    const currentHttpProvider = this.chainService.getChainCurrentProviderByKey(this.chain()).endpoint.replace('wss://', 'https://');
-    const mockSigner = this.getMockSigner(params.request.address, currentHttpProvider);
+    const mockSigner = this.getMockSigner(params.request.address);
 
     const allowance = await stellaSwap.checkAllowance(_getContractAddressOfToken(fromAsset), mockSigner, '0xeb70c2E0c0DCD6A6187D75b55AFc25b3B3ebE5a2') as string;
     const bnAllowance = new BigNumber(allowance);
@@ -176,6 +192,16 @@ export class StellaswapHandler implements SwapBaseInterface {
   }
 
   async getSubmitStep (params: OptimalSwapPathParams): Promise<[BaseStepDetail, SwapFeeInfo] | undefined> {
+    const pair = params.request.pair;
+    const fromAsset = this.chainService.getAssetBySlug(pair.from);
+    const toAsset = this.chainService.getAssetBySlug(pair.to);
+
+    if (!params.selectedQuote) {
+      return Promise.resolve(undefined);
+    }
+
+    const res = await stellaSwap.executeSwap(_getContractAddressOfToken(fromAsset), _getContractAddressOfToken(toAsset), params.selectedQuote.fromAmount, this.getMockSigner(''), '1');
+
     if (params.selectedQuote) {
       const submitStep = {
         name: 'Swap',
@@ -247,8 +273,12 @@ export class StellaswapHandler implements SwapBaseInterface {
     }
 
     try {
-      const slippage = request.slippage * 100;
-      const quote = await stellaSwap.getQuote(fromAssetAddress, toAssetAddress, request.fromAmount, request.address, slippage.toString()) as StellaswapQuoteResp;
+      const quote = await stellaSwap.getQuote(fromAssetAddress, toAssetAddress, request.fromAmount, request.address, (request.slippage * 100).toString()) as StellaswapQuoteResp;
+      const res = await stellaSwap.executeSwap(_getContractAddressOfToken(fromAsset), _getContractAddressOfToken(toAsset), request.fromAmount, this.getMockSigner(request.address), '1');
+
+      console.log('res this shit', res);
+
+      console.log('quote', quote);
 
       const toAmount = quote.result.amountOutOriginal;
       const swapPath = this.parseSwapPath(fromAsset.slug, toAsset.slug, quote.result.trades[0].path);
@@ -340,7 +370,7 @@ export class StellaswapHandler implements SwapBaseInterface {
       case SwapStepType.XCM:
         return Promise.reject(new TransactionError(BasicTxErrorType.INTERNAL_ERROR));
       case SwapStepType.TOKEN_APPROVAL:
-        return this.handleTokenApprovalStep();
+        return this.handleTokenApprovalStep(params);
       case SwapStepType.SET_FEE_TOKEN:
         return Promise.reject(new TransactionError(BasicTxErrorType.UNSUPPORTED));
       case SwapStepType.SWAP:

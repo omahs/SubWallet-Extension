@@ -11,7 +11,7 @@ import { createXcmExtrinsic } from '@subwallet/extension-base/koni/api/xcm';
 import { BalanceService } from '@subwallet/extension-base/services/balance-service';
 import { ChainService } from '@subwallet/extension-base/services/chain-service';
 import { _getAssetDecimals, _getChainNativeTokenSlug, _getTokenOnChainAssetId, _isNativeToken } from '@subwallet/extension-base/services/chain-service/utils';
-import { SwapBaseHandler, SwapBaseInterface } from '@subwallet/extension-base/services/swap-service/handler/base-handler';
+import { SwapBaseHandler, SwapHandlerInterface } from '@subwallet/extension-base/services/swap-service/handler/base-handler';
 import { calculateSwapRate, getEarlyHydradxValidationError, getSwapAlternativeAsset, SWAP_QUOTE_TIMEOUT_MAP } from '@subwallet/extension-base/services/swap-service/utils';
 import { RuntimeDispatchInfo } from '@subwallet/extension-base/types';
 import { BaseStepDetail } from '@subwallet/extension-base/types/service-base';
@@ -28,7 +28,7 @@ const HYDRADX_SUBWALLET_REFERRAL_ACCOUNT = '7PCsCpkgsHdNaZhv79wCCQ5z97uxVbSeSCtD
 const HYDRADX_TESTNET_SUBWALLET_REFERRAL_CODE = 'ASSETHUB';
 const HYDRADX_TESTNET_SUBWALLET_REFERRAL_ACCOUNT = '7LCt6dFqtxzdKVB2648jWW9d85doiFfLSbZJDNAMVJNxh5rJ';
 
-export class HydradxHandler implements SwapBaseInterface {
+export class HydradxHandler implements SwapHandlerInterface {
   private swapBaseHandler: SwapBaseHandler;
   private tradeRouter: TradeRouter | undefined;
   isTestnet = true;
