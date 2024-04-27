@@ -9,16 +9,19 @@ import { TransactionError } from '@subwallet/extension-base/background/errors/Tr
 import { BasicTxErrorType, ChainType, ExtrinsicType } from '@subwallet/extension-base/background/KoniTypes';
 import { getEVMTransactionObject } from '@subwallet/extension-base/koni/api/tokens/evm/transfer';
 import { getERC20Contract } from '@subwallet/extension-base/koni/api/tokens/evm/web3';
+import KoniState from '@subwallet/extension-base/koni/background/handlers/State';
 import { BalanceService } from '@subwallet/extension-base/services/balance-service';
 import { ChainService } from '@subwallet/extension-base/services/chain-service';
 import { _getChainNativeTokenSlug, _getContractAddressOfToken, _isNativeToken, _isSmartContractToken } from '@subwallet/extension-base/services/chain-service/utils';
+import { EXTENSION_REQUEST_URL } from '@subwallet/extension-base/services/request-service/constants';
 import { SwapBaseHandler, SwapHandlerInterface } from '@subwallet/extension-base/services/swap-service/handler/base-handler';
 import { calculateSwapRate, getEarlyHydradxValidationError, SWAP_QUOTE_TIMEOUT_MAP } from '@subwallet/extension-base/services/swap-service/utils';
 import { BaseStepDetail } from '@subwallet/extension-base/types/service-base';
 import { HydradxPreValidationMetadata, OptimalSwapPath, OptimalSwapPathParams, StellaswapPreValidationMetadata, SwapBaseTxData, SwapEarlyValidation, SwapErrorType, SwapFeeInfo, SwapFeeType, SwapProviderId, SwapQuote, SwapRequest, SwapRoute, SwapStepType, SwapSubmitParams, SwapSubmitStepData, ValidateSwapProcessParams } from '@subwallet/extension-base/types/swap';
+import { getId } from '@subwallet/extension-base/utils/getId';
 import { AxiosError } from 'axios';
 import BigNumber from 'bignumber.js';
-import { AbstractSigner, ethers, Provider, TransactionRequest, TypedDataDomain, TypedDataField, VoidSigner } from 'ethers';
+import { AbstractSigner, ethers, Provider, SignatureLike, Signer, TransactionRequest, TypedDataDomain, TypedDataField, VoidSigner } from 'ethers';
 
 // const STELLASWAP_LOW_LIQUIDITY_THRESHOLD = 0.15; // in percentage
 
@@ -62,6 +65,54 @@ const STELLASWAP_NATIVE_TOKEN_ID = 'ETH';
 class SWMockSigner extends VoidSigner {
   _isSigner = true;
 
+  constructor (address: string, provider: Provider, private _signMessage: (method: string, params: any) => Promise<string | undefined>) {
+    super(address, provider);
+  }
+
+  getChainId () {
+    return Promise.resolve(1287);
+  }
+
+  async _signTypedData (domain: TypedDataDomain, types: Record<string, Array<TypedDataField>>, value: Record<string, any>) {
+    const message = JSON.stringify(value, (key, value: unknown) => {
+      const typeOf = typeof value;
+
+      if (typeOf === 'object') {
+        const _value = value as object;
+
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        if ('type' in _value && _value.type === 'BigNumber' && 'hex' in _value) {
+          // @ts-ignore
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          return _value.hex;
+        } else {
+          return value;
+        }
+      } else {
+        return value;
+      }
+    });
+
+    const signature = await this._signMessage('eth_signTypedData_v4', [
+      this.address,
+      JSON.stringify({
+        account: this.address,
+        domain,
+        types,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        message: JSON.parse(message),
+        primaryType: 'PermitWitnessTransferFrom'
+      })
+    ]);
+
+    if (!signature) {
+      throw Error('Cannot sign');
+    }
+
+    return signature;
+  }
+
   override signTransaction (tx: TransactionRequest): Promise<string> {
     console.log('tx here bitch', tx);
 
@@ -73,7 +124,7 @@ export class StellaswapHandler implements SwapHandlerInterface {
   private swapBaseHandler: SwapBaseHandler;
   isTestnet: boolean;
 
-  constructor (chainService: ChainService, balanceService: BalanceService, isTestnet = true) { // todo: pass in baseHandler from service
+  constructor (chainService: ChainService, balanceService: BalanceService, private readonly state: KoniState, isTestnet = true) { // todo: pass in baseHandler from service
     this.swapBaseHandler = new SwapBaseHandler({
       balanceService,
       chainService,
@@ -94,7 +145,21 @@ export class StellaswapHandler implements SwapHandlerInterface {
     // @ts-ignore
     providerObj._isSigner = true;
 
-    return new SWMockSigner(address, providerObj);
+    const _signMessage = async (method: string, params: any) => {
+      const id = getId();
+
+      return this.state.evmSign(id, 'https://web.subwallet.app', method, params, [address]);
+    };
+
+    const rs = new SWMockSigner(address, providerObj, _signMessage);
+
+    // @ts-ignore
+    providerObj.getAddress = rs.getAddress;
+    // TODO: Update this code
+    // @ts-ignore
+    providerObj.call = this.chainService.getEvmApi(this.chain()).api.eth.Contract.call;
+
+    return rs;
     //
     //
     // return new ethers.VoidSigner(address, providerObj);
