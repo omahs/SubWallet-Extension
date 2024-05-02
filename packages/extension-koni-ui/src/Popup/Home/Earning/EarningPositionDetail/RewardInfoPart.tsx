@@ -147,7 +147,7 @@ function Component ({ className, closeAlert, compound, inputAsset, isShowBalance
             {canClaim && (
               <Button
                 onClick={onClaimReward}
-                schema={statusClaimPermission && statusClaimPermission === PalletNominationPoolsClaimPermission.PERMISSIONLESS_COMPOUND ? 'secondary' : 'primary'}
+                schema={statusClaimPermission && statusClaimPermission === PalletNominationPoolsClaimPermission.PERMISSIONED ? 'primary' : 'secondary'}
                 size='xs'
               >
                 {type === YieldPoolType.NATIVE_STAKING && isDAppStaking ? t('Check rewards') : t('Claim rewards')}

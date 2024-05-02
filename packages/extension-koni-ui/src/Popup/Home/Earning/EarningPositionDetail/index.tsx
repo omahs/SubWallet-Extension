@@ -396,7 +396,6 @@ function Component ({ compound,
 
         <WithdrawInfoPart
           className={'__withdraw-info-part'}
-          compound={compound}
           inputAsset={inputAsset}
           poolInfo={poolInfo}
           transactionChainValue={transactionChainValue}
