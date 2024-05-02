@@ -3,7 +3,6 @@
 
 import { PREDEFINED_STAKING_POOL } from '@subwallet/extension-base/constants';
 import { getValidatorLabel } from '@subwallet/extension-base/koni/api/staking/bonding/utils';
-import { YieldPoolType } from '@subwallet/extension-base/types';
 import { StakingPoolItem } from '@subwallet/extension-koni-ui/components';
 import EmptyValidator from '@subwallet/extension-koni-ui/components/Account/EmptyValidator';
 import { Avatar } from '@subwallet/extension-koni-ui/components/Avatar';
@@ -12,9 +11,9 @@ import { EarningPoolDetailModal } from '@subwallet/extension-koni-ui/components/
 import { EarningPoolDetailModalId } from '@subwallet/extension-koni-ui/components/Modal/Earning/EarningPoolDetailModal';
 import { FilterModal } from '@subwallet/extension-koni-ui/components/Modal/FilterModal';
 import { SortingModal } from '@subwallet/extension-koni-ui/components/Modal/SortingModal';
-import { useFilterModal, useGetPoolTargetList, useSelector, useYieldPositionDetail } from '@subwallet/extension-koni-ui/hooks';
+import { useFilterModal, useGetPoolTargetList, useYieldPositionDetail } from '@subwallet/extension-koni-ui/hooks';
 import { NominationPoolDataType, ThemeProps } from '@subwallet/extension-koni-ui/types';
-import { ActivityIndicator, Badge, Button, Icon, InputRef, ModalContext, SelectModal, Tooltip, useExcludeModal } from '@subwallet/react-ui';
+import { ActivityIndicator, Badge, Button, Icon, InputRef, ModalContext, SelectModal, useExcludeModal } from '@subwallet/react-ui';
 import BigN from 'bignumber.js';
 import { Book, CaretLeft, FadersHorizontal, SortAscending } from 'phosphor-react';
 import React, { ForwardedRef, forwardRef, SyntheticEvent, useCallback, useContext, useEffect, useMemo, useState } from 'react';
@@ -75,17 +74,6 @@ const Component = (props: Props, ref: ForwardedRef<InputRef>) => {
   const items = useGetPoolTargetList(slug) as NominationPoolDataType[];
   const { filterSelectionMap, onApplyFilter, onChangeFilterOption, onCloseFilterModal, onResetFilter, selectedFilters } = useFilterModal(FILTER_MODAL_ID);
   const { compound } = useYieldPositionDetail(slug, from);
-  const { poolInfoMap } = useSelector((state) => state.earning);
-
-  const maxPoolMembersValue = useMemo(() => {
-    const poolInfo = poolInfoMap[slug];
-
-    if (poolInfo.type === YieldPoolType.NOMINATION_POOL) {
-      return poolInfo.maxPoolMembers;
-    }
-
-    return undefined;
-  }, [poolInfoMap, slug]);
 
   const sortingOptions: SortOption[] = useMemo(() => {
     return [
@@ -137,38 +125,28 @@ const Component = (props: Props, ref: ForwardedRef<InputRef>) => {
           return true;
         }
       })
-      .map((item) => {
-        const disabled = item.isCrowded;
-
-        return { ...item, disabled };
-      })
       .sort((a: NominationPoolDataType, b: NominationPoolDataType) => {
-        const isSubwalletA = a.name && a.name.includes('SubWallet');
-        const isSubwalletB = b.name && b.name.includes('SubWallet');
-
-        if (isSubwalletA && !isSubwalletB) {
-          return -1;
-        } else if (!isSubwalletA && isSubwalletB) {
-          return 1;
-        }
-
         switch (sortSelection) {
           case SortKey.MEMBER:
             return a.memberCounter - b.memberCounter;
           case SortKey.TOTAL_POOLED:
             return new BigN(b.bondedAmount).minus(a.bondedAmount).toNumber();
 
-          case SortKey.DEFAULT:
-            if (a.isCrowded && !b.isCrowded) {
-              return 1;
-            } else if (!a.isCrowded && b.isCrowded) {
-              return -1;
+          default:
+            if (sortSelection === SortKey.DEFAULT) {
+              const isSubwalletA = a.name && a.name.includes('SubWallet');
+              const isSubwalletB = b.name && b.name.includes('SubWallet');
+
+              if (isSubwalletA && !isSubwalletB) {
+                return -1;
+              } else if (!isSubwalletA && isSubwalletB) {
+                return 1;
+              }
+
+              return 0;
             } else {
               return 0;
             }
-
-          default:
-            return 0;
         }
       });
   }, [items, selectedFilters, sortSelection]);
@@ -205,30 +183,13 @@ const Component = (props: Props, ref: ForwardedRef<InputRef>) => {
 
   const renderItem = useCallback((item: NominationPoolDataType) => {
     return (
-      item.isCrowded
-        ? (
-          <Tooltip
-            placement={'top'}
-            title={t('This pool has reached the maximum number of members. Select another to continue')}
-          >
-            <div className={'__pool-item-wrapper'}>
-              <StakingPoolItem
-                {...item}
-                className={'pool-item'}
-                onClickMoreBtn={onClickMore(item)}
-              />
-            </div>
-          </Tooltip>
-        )
-        : (
-          <StakingPoolItem
-            {...item}
-            className={'pool-item'}
-            onClickMoreBtn={onClickMore(item)}
-          />
-        )
+      <StakingPoolItem
+        {...item}
+        className={'pool-item'}
+        onClickMoreBtn={onClickMore(item)}
+      />
     );
-  }, [onClickMore, t]);
+  }, [onClickMore]);
 
   const renderEmpty = useCallback(() => {
     return (
@@ -369,7 +330,7 @@ const Component = (props: Props, ref: ForwardedRef<InputRef>) => {
               />
             </div>
           )}
-        title={label || placeholder || t('Select pool')}
+        title={t('Select pool')}
       />
 
       <FilterModal
@@ -391,7 +352,6 @@ const Component = (props: Props, ref: ForwardedRef<InputRef>) => {
 
       <EarningPoolDetailModal
         detailItem={viewDetailItem}
-        maxPoolMembersValue={maxPoolMembersValue}
         onCancel={onCloseDetail}
       />
     </>
