@@ -8,7 +8,7 @@ import { VALIDATOR_DETAIL_MODAL } from '@subwallet/extension-koni-ui/constants';
 import { useGetChainPrefixBySlug } from '@subwallet/extension-koni-ui/hooks';
 import useTranslation from '@subwallet/extension-koni-ui/hooks/common/useTranslation';
 import { ThemeProps, ValidatorDataType } from '@subwallet/extension-koni-ui/types';
-import { ModalContext, SwModal } from '@subwallet/react-ui';
+import { ModalContext, Number, SwModal } from '@subwallet/react-ui';
 import React, { useCallback, useContext, useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -27,6 +27,7 @@ function Component (props: Props): React.ReactElement<Props> {
     expectedReturn: earningEstimated = '',
     identity: validatorName = '',
     minBond: minStake,
+    nominatorCount,
     otherStake,
     ownStake,
     symbol,
@@ -42,7 +43,7 @@ function Component (props: Props): React.ReactElement<Props> {
   }, [chain]);
 
   const isParaChain = useMemo(() => {
-    return _STAKING_CHAIN_GROUP.para.includes(chain);
+    return _STAKING_CHAIN_GROUP.para.includes(chain) || _STAKING_CHAIN_GROUP.amplitude.includes(chain);
   }, [chain]);
   const title = useMemo(() => {
     const label = getValidatorLabel(chain);
@@ -62,6 +63,22 @@ function Component (props: Props): React.ReactElement<Props> {
 
     onCancel && onCancel();
   }, [inactiveModal, onCancel]);
+
+  const ratePercent = useMemo(() => {
+    const rate = maxPoolMembersValue && (nominatorCount / maxPoolMembersValue);
+
+    if (rate !== undefined) {
+      if (rate < 0.9) {
+        return 'default';
+      } else if (rate >= 0.9 && rate < 1) {
+        return 'gold';
+      } else {
+        return 'danger';
+      }
+    }
+
+    return undefined;
+  }, [maxPoolMembersValue, nominatorCount]);
 
   return (
     <SwModal
@@ -107,15 +124,13 @@ function Component (props: Props): React.ReactElement<Props> {
           />
         }
 
-        {
-          ownStake !== '0' && <MetaInfo.Number
-            decimals={decimals}
-            label={t('Own stake')}
-            suffix={symbol}
-            value={ownStake}
-            valueColorSchema={'even-odd'}
-          />
-        }
+        <MetaInfo.Number
+          decimals={decimals}
+          label={t('Own stake')}
+          suffix={symbol}
+          value={ownStake}
+          valueColorSchema={'even-odd'}
+        />
 
         {
           otherStake !== '0' && <MetaInfo.Number
@@ -143,12 +158,30 @@ function Component (props: Props): React.ReactElement<Props> {
           valueColorSchema={'even-odd'}
         />
 
-        {
-          maxPoolMembersValue && (isParaChain || isRelayChain) && <MetaInfo.Number
-            label={t(isParaChain ? 'Delegators' : 'Nominator')}
-            value={maxPoolMembersValue}
+        {!maxPoolMembersValue && (isParaChain || isRelayChain) &&
+          <MetaInfo.Number
+            label={t(isParaChain ? 'Delegator' : 'Nominator')}
+            value={nominatorCount}
             valueColorSchema={'even-odd'}
-          />
+          />}
+
+        {
+          !!maxPoolMembersValue && !!ratePercent && (isParaChain || isRelayChain) && (
+            <MetaInfo.Default
+              className={'__maximum-validator'}
+              label={t(isParaChain ? 'Delegator' : 'Nominator')}
+              labelAlign='top'
+              valueColorSchema={`${ratePercent}`}
+            >
+              <Number
+                decimal={0}
+                value={nominatorCount}
+              /> &nbsp;/&nbsp; <Number
+                decimal={0}
+                value={maxPoolMembersValue}
+              />
+            </MetaInfo.Default>
+          )
         }
       </MetaInfo>
     </SwModal>
@@ -156,7 +189,11 @@ function Component (props: Props): React.ReactElement<Props> {
 }
 
 const EarningValidatorDetailModal = styled(Component)<Props>(({ theme: { token } }: Props) => {
-  return ({});
+  return ({
+    '.__maximum-validator .__value': {
+      display: 'flex'
+    }
+  });
 });
 
 export default EarningValidatorDetailModal;
