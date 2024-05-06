@@ -698,6 +698,12 @@ export default class TransactionService {
         break;
       }
 
+      case ExtrinsicType.SET_FEE_TOKEN: {
+        historyItem.additionalInfo = parseTransactionData<ExtrinsicType.SET_FEE_TOKEN>(transaction.data);
+
+        break;
+      }
+
       case ExtrinsicType.UNKNOWN:
         break;
     }
