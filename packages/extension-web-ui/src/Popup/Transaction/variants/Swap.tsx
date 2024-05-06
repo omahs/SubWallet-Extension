@@ -4,7 +4,16 @@
 import { _ChainAsset } from '@subwallet/chain-list/types';
 import { SwapError } from '@subwallet/extension-base/background/errors/SwapError';
 import { NotificationType } from '@subwallet/extension-base/background/KoniTypes';
-import { _getAssetDecimals, _getAssetOriginChain, _getAssetSymbol, _getChainNativeTokenSlug, _getOriginChainOfAsset, _isChainEvmCompatible, _parseAssetRefKey } from '@subwallet/extension-base/services/chain-service/utils';
+import {
+  _getAssetDecimals,
+  _getAssetOriginChain,
+  _getAssetPriceId,
+  _getAssetSymbol,
+  _getChainNativeTokenSlug,
+  _getOriginChainOfAsset,
+  _isChainEvmCompatible,
+  _parseAssetRefKey
+} from '@subwallet/extension-base/services/chain-service/utils';
 import { getSwapAlternativeAsset } from '@subwallet/extension-base/services/swap-service/utils';
 import { SWTransactionResponse } from '@subwallet/extension-base/services/transaction-service/types';
 import { OptimalSwapPath, SlippageType, SwapFeeComponent, SwapFeeType, SwapProviderId, SwapQuote, SwapRequest, SwapStepType } from '@subwallet/extension-base/types/swap';
@@ -327,6 +336,10 @@ const Component = () => {
     persistData(values);
   }, [persistData]);
 
+  const isSwapHydraDX = useMemo(() => {
+    return currentQuote && [SwapProviderId.HYDRADX_TESTNET, SwapProviderId.HYDRADX_MAINNET].includes(currentQuote?.provider.id);
+  }, [currentQuote]);
+
   const estimatedFeeValue = useMemo(() => {
     let totalBalance = BN_ZERO;
 
@@ -343,6 +356,27 @@ const Component = () => {
 
     return totalBalance;
   }, [assetRegistryMap, currentQuote?.feeInfo.feeComponent, priceMap]);
+
+  const networkFeeHydraDX = useMemo(() => {
+    let totalBalance = BN_ZERO;
+
+    if (isSwapHydraDX) {
+      const feeItem = currentQuote?.feeInfo.feeComponent.find((feeItem) => feeItem.feeType === SwapFeeType.NETWORK_FEE);
+
+      if (feeItem) {
+        const asset = assetRegistryMap[feeItem.tokenSlug];
+
+        if (asset) {
+          const { decimals, priceId } = asset;
+          const price = priceMap[priceId || ''] || 0;
+
+          totalBalance = new BigN(feeItem.amount).div(BN_TEN.pow(decimals || 0)).multipliedBy(price);
+        }
+      }
+    }
+
+    return totalBalance;
+  }, [assetRegistryMap, currentQuote?.feeInfo.feeComponent, isSwapHydraDX, priceMap]);
 
   const getConvertedBalance = useCallback((feeItem: SwapFeeComponent) => {
     const asset = assetRegistryMap[feeItem.tokenSlug];
@@ -1116,9 +1150,13 @@ const Component = () => {
     return false;
   }, [altChain, checkChainConnected]);
 
-  const isSwapHydraDX = useMemo(() => {
-    return currentQuote && [SwapProviderId.HYDRADX_TESTNET, SwapProviderId.HYDRADX_MAINNET].includes(currentQuote?.provider.id);
-  }, [currentQuote]);
+  const convertedNetworkFee = useMemo(() => {
+    if (!priceMap[_getAssetPriceId(feeAssetInfo)] || !priceMap[_getAssetPriceId(feeAssetInfo)]) {
+      return undefined;
+    }
+
+    return new BigN(networkFeeHydraDX).div(priceMap[_getAssetPriceId(feeAssetInfo)] || 0);
+  }, [networkFeeHydraDX, feeAssetInfo, priceMap]);
 
   return (
     <>
@@ -1547,14 +1585,22 @@ const Component = () => {
                                 className={'__fee-paid-token'}
                                 onClick={openChooseFeeToken}
                               >
+                                {convertedNetworkFee && (<Number
+                                  className={'__network-fee-info'}
+                                  customFormatter={swapCustomFormatter}
+                                  decimal={0}
+                                  formatType={'custom'}
+                                  metadata={numberMetadata}
+                                  suffix={_getAssetSymbol(feeAssetInfo)}
+                                  value={convertedNetworkFee}
+                                />)}
                                 <Logo
                                   className='token-logo'
                                   isShowSubLogo={false}
                                   shape='circle'
-                                  size={24}
+                                  size={18}
                                   token={feeAssetInfo && feeAssetInfo.slug.toLowerCase()}
                                 />
-                                <div className={'__fee-paid-token-symbol'}>{_getAssetSymbol(feeAssetInfo)}</div>
                                 <Icon
                                   className={'__edit-token'}
                                   customSize={'20px'}
@@ -1593,7 +1639,7 @@ const Component = () => {
       </>
 
       <ChooseFeeTokenModal
-        estimatedFee={estimatedFeeValue}
+        estimatedFee={isSwapHydraDX ? networkFeeHydraDX : estimatedFeeValue}
         items={feeOptions}
         modalId={SWAP_CHOOSE_FEE_TOKEN_MODAL}
         onSelectItem={onSelectFeeOption}
@@ -1667,6 +1713,16 @@ const Swap = styled(Wrapper)<Props>(({ theme: { token } }: Props) => {
     '.__fee-paid-token-symbol': {
       paddingLeft: 8,
       color: token.colorWhite
+    },
+    '.__network-fee-token-symbol': {
+      color: token.colorWhite
+    },
+    '.token-logo .ant-image': {
+      display: 'flex',
+      alignItems: 'center'
+    },
+    '.__network-fee-info': {
+      paddingRight: 8
     },
     '.__quote-icon-info': {
       fontSize: 16,
