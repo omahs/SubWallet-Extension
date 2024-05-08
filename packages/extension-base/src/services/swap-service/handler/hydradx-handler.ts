@@ -228,7 +228,7 @@ export class HydradxHandler implements SwapBaseInterface {
   generateOptimalProcess (params: OptimalSwapPathParams): Promise<OptimalSwapPath> {
     return this.swapBaseHandler.generateOptimalProcess(params, [
       this.getXcmStep,
-      // this.getFeeOptionStep.bind(this),
+      this.getFeeOptionStep.bind(this),
       this.getSubmitStep
     ]);
   }
@@ -338,15 +338,13 @@ export class HydradxHandler implements SwapBaseInterface {
         }
       }
 
-      // const feeTokenOptions = this.chainService.getFeeTokensByChain(this.chain());
-      const feeTokenOptions = [fromChainNativeTokenSlug];
+      const feeTokenOptions = this.chainService.getFeeTokensByChain(this.chain());
 
-      // if (request.feeToken && !feeTokenOptions.includes(request.feeToken)) {
-      //   return new SwapError(SwapErrorType.UNKNOWN);
-      // }
+      if (request.feeToken && !feeTokenOptions.includes(request.feeToken)) {
+        return new SwapError(SwapErrorType.UNKNOWN);
+      }
 
-      // const selectedFeeToken = request.feeToken || fromChainNativeTokenSlug;
-      const selectedFeeToken = fromChainNativeTokenSlug;
+      const selectedFeeToken = request.feeToken || fromChainNativeTokenSlug;
 
       return {
         pair: request.pair,
@@ -447,8 +445,7 @@ export class HydradxHandler implements SwapBaseInterface {
     return {
       txChain: this.chain(),
       extrinsic,
-      // extrinsicType: ExtrinsicType.SET_FEE_TOKEN,
-      extrinsicType: ExtrinsicType.SWAP,
+      extrinsicType: ExtrinsicType.SET_FEE_TOKEN,
       chainType: ChainType.SUBSTRATE,
       txData
     } as SwapSubmitStepData;
