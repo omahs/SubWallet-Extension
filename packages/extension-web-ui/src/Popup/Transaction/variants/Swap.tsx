@@ -570,7 +570,7 @@ const Component = () => {
 
   const isSwapHydraDXExist = useMemo(() => {
     return processState.steps.some((item) => item.type === SwapStepType.SET_FEE_TOKEN);
-  },[processState.steps]);
+  }, [processState.steps]);
 
   const onSubmit: FormCallbacks<SwapParams>['onFinish'] = useCallback((values: SwapParams) => {
     if (chainValue && !checkChainConnected(chainValue)) {
@@ -649,8 +649,7 @@ const Component = () => {
           } else {
             let latestOptimalQuote = currentQuote;
 
-            if ((currentOptimalSwapPath.steps.length > 2 || isSwapHydraDX) && isLastStep) {
-
+            if (currentOptimalSwapPath.steps.length > 2 && isLastStep) {
               if (currentQuoteRequest) {
                 const latestSwapQuote = await getLatestSwapQuote(currentQuoteRequest);
 
@@ -673,7 +672,6 @@ const Component = () => {
             });
 
             const rs = await submitPromise;
-
             const success = onSuccess(isLastStep, needRollback)(rs);
 
             if (success) {
@@ -700,9 +698,9 @@ const Component = () => {
 
     if (isSwapHydraDXExist) {
       openAlert({
-        title: t('Pay attention!'),
+        title: t('Change fee token confirm'),
         type: NotificationType.WARNING,
-        content: t(`${convertedNetworkFee?.toString()} ${_getAssetSymbol(feeAssetInfo)}`),
+        content: t(`Estimated fee: ${convertedNetworkFee?.toString()} ${_getAssetSymbol(feeAssetInfo)}`),
         okButton: {
           text: t('Continue'),
           onClick: () => {
@@ -739,7 +737,7 @@ const Component = () => {
     } else {
       transactionBlockProcess();
     }
-  }, [accounts, chainValue, checkChainConnected, closeAlert, currentOptimalSwapPath, currentQuote, currentQuoteRequest, currentSlippage.slippage, isSwapHydraDX, notify, onError, onSuccess, openAlert, processState.currentStep, processState.steps.length, t]);
+  }, [accounts, chainValue, checkChainConnected, closeAlert, convertedNetworkFee, currentOptimalSwapPath, currentQuote, currentQuoteRequest, currentSlippage.slippage, feeAssetInfo, isSwapHydraDXExist, notify, onError, onSuccess, openAlert, processState.currentStep, processState.steps.length, t]);
 
   const destinationSwapValue = useMemo(() => {
     if (currentQuote) {

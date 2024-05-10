@@ -25,8 +25,6 @@ interface Props extends ThemeProps {
 }
 
 const getTransactionComponent = (extrinsicType: ExtrinsicType): typeof BaseTransactionConfirmation => {
-  console.log('extrinsicType', extrinsicType);
-
   switch (extrinsicType) {
     case ExtrinsicType.TRANSFER_BALANCE:
     case ExtrinsicType.TRANSFER_TOKEN:
