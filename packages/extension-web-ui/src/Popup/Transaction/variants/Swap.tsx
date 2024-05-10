@@ -560,6 +560,18 @@ const Component = () => {
     [notify, onDone, onError, t]
   );
 
+  const convertedNetworkFee = useMemo(() => {
+    if (!priceMap[_getAssetPriceId(feeAssetInfo)] || !priceMap[_getAssetPriceId(feeAssetInfo)]) {
+      return undefined;
+    }
+
+    return new BigN(networkFeeHydraDX).div(priceMap[_getAssetPriceId(feeAssetInfo)] || 0);
+  }, [networkFeeHydraDX, feeAssetInfo, priceMap]);
+
+  const isSwapHydraDXExist = useMemo(() => {
+    return processState.steps.some((item) => item.type === SwapStepType.SET_FEE_TOKEN);
+  },[processState.steps]);
+
   const onSubmit: FormCallbacks<SwapParams>['onFinish'] = useCallback((values: SwapParams) => {
     if (chainValue && !checkChainConnected(chainValue)) {
       openAlert({
@@ -637,7 +649,8 @@ const Component = () => {
           } else {
             let latestOptimalQuote = currentQuote;
 
-            if (currentOptimalSwapPath.steps.length > 2 && isLastStep) {
+            if ((currentOptimalSwapPath.steps.length > 2 || isSwapHydraDX) && isLastStep) {
+
               if (currentQuoteRequest) {
                 const latestSwapQuote = await getLatestSwapQuote(currentQuoteRequest);
 
@@ -660,6 +673,7 @@ const Component = () => {
             });
 
             const rs = await submitPromise;
+
             const success = onSuccess(isLastStep, needRollback)(rs);
 
             if (success) {
@@ -684,7 +698,26 @@ const Component = () => {
       }, 300);
     };
 
-    if (currentQuote.isLowLiquidity) {
+    if (isSwapHydraDXExist) {
+      openAlert({
+        title: t('Pay attention!'),
+        type: NotificationType.WARNING,
+        content: t(`${convertedNetworkFee?.toString()} ${_getAssetSymbol(feeAssetInfo)}`),
+        okButton: {
+          text: t('Continue'),
+          onClick: () => {
+            closeAlert();
+            transactionBlockProcess();
+          },
+          icon: CheckCircle
+        },
+        cancelButton: {
+          text: t('Cancel'),
+          schema: 'secondary',
+          onClick: closeAlert
+        }
+      });
+    } else if (currentQuote.isLowLiquidity) {
       openAlert({
         title: t('Pay attention!'),
         type: NotificationType.WARNING,
@@ -706,7 +739,7 @@ const Component = () => {
     } else {
       transactionBlockProcess();
     }
-  }, [accounts, chainValue, checkChainConnected, closeAlert, currentOptimalSwapPath, currentQuote, currentQuoteRequest, currentSlippage.slippage, notify, onError, onSuccess, openAlert, processState.currentStep, processState.steps.length, t]);
+  }, [accounts, chainValue, checkChainConnected, closeAlert, currentOptimalSwapPath, currentQuote, currentQuoteRequest, currentSlippage.slippage, isSwapHydraDX, notify, onError, onSuccess, openAlert, processState.currentStep, processState.steps.length, t]);
 
   const destinationSwapValue = useMemo(() => {
     if (currentQuote) {
@@ -958,7 +991,8 @@ const Component = () => {
             },
             fromAmount: fromAmountValue,
             slippage: currentSlippage.slippage.toNumber(),
-            recipient: recipientValue || undefined
+            recipient: recipientValue || undefined,
+            feeToken: currentFeeOption
           };
 
           handleSwapRequest(currentRequest).then((result) => {
@@ -978,7 +1012,7 @@ const Component = () => {
               setCurrentQuote(result.quote.optimalQuote);
               setQuoteAliveUntil(result.quote.aliveUntil);
               setFeeOptions(result.quote.optimalQuote?.feeInfo?.feeOptions || []);
-              setCurrentFeeOption(result.quote.optimalQuote?.feeInfo?.feeOptions?.[0]);
+              !currentFeeOption && setCurrentFeeOption(result.quote.optimalQuote?.feeInfo?.feeOptions?.[0]);
               setSwapError(result.quote.error);
               optimalQuoteRef.current = result.quote.optimalQuote;
               setHandleRequestLoading(false);
@@ -1004,7 +1038,7 @@ const Component = () => {
       sync = false;
       clearTimeout(timeout);
     };
-  }, [currentSlippage, form, fromAmountValue, fromTokenSlugValue, fromValue, recipientValue, showRecipientField, toTokenSlugValue]);
+  }, [currentFeeOption, currentSlippage, form, fromAmountValue, fromTokenSlugValue, fromValue, recipientValue, showRecipientField, toTokenSlugValue]);
 
   useEffect(() => {
     // eslint-disable-next-line prefer-const
@@ -1140,14 +1174,6 @@ const Component = () => {
 
     return false;
   }, [altChain, checkChainConnected]);
-
-  const convertedNetworkFee = useMemo(() => {
-    if (!priceMap[_getAssetPriceId(feeAssetInfo)] || !priceMap[_getAssetPriceId(feeAssetInfo)]) {
-      return undefined;
-    }
-
-    return new BigN(networkFeeHydraDX).div(priceMap[_getAssetPriceId(feeAssetInfo)] || 0);
-  }, [networkFeeHydraDX, feeAssetInfo, priceMap]);
 
   return (
     <>
@@ -1560,56 +1586,58 @@ const Component = () => {
                   >
 
                     <div className={'__quote-fee-block'}>
-                      {feeItems.map((item) => (
-                        item.type === SwapFeeType.NETWORK_FEE
-                          ? (
-                            <>
+                      {feeItems.map((item, index) => (
+                        <div key={`${item.type}-${index}`}>
+                          {item.type === SwapFeeType.NETWORK_FEE
+                            ? (
+                              <>
+                                <MetaInfo.Number
+                                  decimals={0}
+                                  label={t(item.label)}
+                                  prefix={item.prefix}
+                                  suffix={item.suffix}
+                                  value={item.value}
+                                />
+                                <div
+                                  className={'__fee-paid-token'}
+                                  onClick={openChooseFeeToken}
+                                >
+                                  {convertedNetworkFee && (
+                                    <Number
+                                      className={'__network-fee-info'}
+                                      customFormatter={swapCustomFormatter}
+                                      decimal={0}
+                                      formatType={'custom'}
+                                      metadata={numberMetadata}
+                                      suffix={_getAssetSymbol(feeAssetInfo)}
+                                      value={convertedNetworkFee}
+                                    />
+                                  )}
+                                  <Logo
+                                    className='token-logo'
+                                    isShowSubLogo={false}
+                                    shape='circle'
+                                    size={18}
+                                    token={feeAssetInfo && feeAssetInfo.slug.toLowerCase()}
+                                  />
+                                  <Icon
+                                    className={'__edit-token'}
+                                    customSize={'20px'}
+                                    phosphorIcon={PencilSimpleLine}
+                                  />
+                                </div>
+                              </>
+                            )
+                            : (
                               <MetaInfo.Number
                                 decimals={0}
-                                key={item.type}
                                 label={t(item.label)}
                                 prefix={item.prefix}
                                 suffix={item.suffix}
                                 value={item.value}
                               />
-                              <div
-                                className={'__fee-paid-token'}
-                                onClick={openChooseFeeToken}
-                              >
-                                {convertedNetworkFee && (<Number
-                                  className={'__network-fee-info'}
-                                  customFormatter={swapCustomFormatter}
-                                  decimal={0}
-                                  formatType={'custom'}
-                                  metadata={numberMetadata}
-                                  suffix={_getAssetSymbol(feeAssetInfo)}
-                                  value={convertedNetworkFee}
-                                />)}
-                                <Logo
-                                  className='token-logo'
-                                  isShowSubLogo={false}
-                                  shape='circle'
-                                  size={18}
-                                  token={feeAssetInfo && feeAssetInfo.slug.toLowerCase()}
-                                />
-                                <Icon
-                                  className={'__edit-token'}
-                                  customSize={'20px'}
-                                  phosphorIcon={PencilSimpleLine}
-                                />
-                              </div>
-                            </>
-                          )
-                          : (
-                            <MetaInfo.Number
-                              decimals={0}
-                              key={item.type}
-                              label={t(item.label)}
-                              prefix={item.prefix}
-                              suffix={item.suffix}
-                              value={item.value}
-                            />
-                          )
+                            )}
+                        </div>
                       ))}
                     </div>
 
@@ -1631,6 +1659,7 @@ const Component = () => {
 
       <ChooseFeeTokenModal
         estimatedFee={isSwapHydraDX ? networkFeeHydraDX : estimatedFeeValue}
+        isSwapHydraDX={isSwapHydraDX}
         items={feeOptions}
         modalId={SWAP_CHOOSE_FEE_TOKEN_MODAL}
         onSelectItem={onSelectFeeOption}

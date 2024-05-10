@@ -17,11 +17,12 @@ type Props = ThemeProps & {
   items: string[] | undefined,
   onSelectItem: (slug: string) => void,
   selectedItem?: string,
+  isSwapHydraDX?: boolean
 }
 const numberMetadata = { maxNumberFormat: 8 };
 
 const Component: React.FC<Props> = (props: Props) => {
-  const { className, estimatedFee, items, modalId, onSelectItem, selectedItem } = props;
+  const { className, estimatedFee, isSwapHydraDX, items, modalId, onSelectItem, selectedItem } = props;
 
   const { inactiveModal } = useContext(ModalContext);
 
@@ -41,7 +42,7 @@ const Component: React.FC<Props> = (props: Props) => {
       >
         <div className={'__choose-fee-wrapper'}>
           <div className={'__estimate-fee'}>
-            <span className={'__title'}>Estimated  fee</span>
+            <span className={'__title'}>{ isSwapHydraDX ? 'Network fee' : 'Estimated  fee'}</span>
             <Number
               className={'__value'}
               customFormatter={swapCustomFormatter}
@@ -60,7 +61,7 @@ const Component: React.FC<Props> = (props: Props) => {
               amountToPay={estimatedFee}
               key={index}
               onSelect={onSelectItem}
-              selected={!!selectedItem}
+              selected={item === selectedItem}
               slug={item}
             />
           ))}

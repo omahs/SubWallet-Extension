@@ -239,6 +239,8 @@ const Component = function ({ className }: Props) {
           return t('Token approve');
         case ExtrinsicType.SWAP:
           return t('Swap confirmation');
+        case ExtrinsicType.SET_FEE_TOKEN:
+          return t('Swap confirmation');
         case ExtrinsicType.CROWDLOAN:
         case ExtrinsicType.EVM_EXECUTE:
         case ExtrinsicType.UNKNOWN:
