@@ -5,11 +5,11 @@ import { _getAssetPriceId, _getAssetSymbol } from '@subwallet/extension-base/ser
 import { swapCustomFormatter } from '@subwallet/extension-base/utils';
 import { useSelector } from '@subwallet/extension-web-ui/hooks';
 import { ThemeProps } from '@subwallet/extension-web-ui/types';
-import { Icon, Logo, Number } from '@subwallet/react-ui';
+import { Icon, Logo, ModalContext, Number } from '@subwallet/react-ui';
 import BigN from 'bignumber.js';
 import CN from 'classnames';
 import { CheckCircle } from 'phosphor-react';
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useContext, useMemo } from 'react';
 import styled from 'styled-components';
 
 type Props = ThemeProps & {
@@ -17,16 +17,19 @@ type Props = ThemeProps & {
   amountToPay: string | number | BigN,
   selected?: boolean,
   onSelect?: (slug: string) => void,
+  modalId: string;
 }
 const numberMetadata = { maxNumberFormat: 8 };
 
 const Component: React.FC<Props> = (props: Props) => {
-  const { amountToPay, className, onSelect, selected, slug } = props;
+  const { amountToPay, className, modalId, onSelect, selected, slug } = props;
   const assetRegistryMap = useSelector((state) => state.assetRegistry.assetRegistry);
   const priceMap = useSelector((state) => state.price.priceMap);
+  const { inactiveModal } = useContext(ModalContext);
   const _onSelect = useCallback(() => {
     onSelect?.(slug);
-  }, [onSelect, slug]);
+    inactiveModal(modalId);
+  }, [inactiveModal, modalId, onSelect, slug]);
 
   const feeAssetInfo = useMemo(() => {
     return (slug ? assetRegistryMap[slug] : undefined);

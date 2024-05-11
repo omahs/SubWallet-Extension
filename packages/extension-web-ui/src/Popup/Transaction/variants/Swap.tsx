@@ -568,10 +568,6 @@ const Component = () => {
     return new BigN(networkFeeHydraDX).div(priceMap[_getAssetPriceId(feeAssetInfo)] || 0);
   }, [networkFeeHydraDX, feeAssetInfo, priceMap]);
 
-  const isSwapHydraDXExist = useMemo(() => {
-    return processState.steps.some((item) => item.type === SwapStepType.SET_FEE_TOKEN);
-  }, [processState.steps]);
-
   const onSubmit: FormCallbacks<SwapParams>['onFinish'] = useCallback((values: SwapParams) => {
     if (chainValue && !checkChainConnected(chainValue)) {
       openAlert({
@@ -696,26 +692,7 @@ const Component = () => {
       }, 300);
     };
 
-    if (isSwapHydraDXExist) {
-      openAlert({
-        title: t('Change fee token confirm'),
-        type: NotificationType.WARNING,
-        content: t(`Estimated fee: ${convertedNetworkFee?.toString()} ${_getAssetSymbol(feeAssetInfo)}`),
-        okButton: {
-          text: t('Continue'),
-          onClick: () => {
-            closeAlert();
-            transactionBlockProcess();
-          },
-          icon: CheckCircle
-        },
-        cancelButton: {
-          text: t('Cancel'),
-          schema: 'secondary',
-          onClick: closeAlert
-        }
-      });
-    } else if (currentQuote.isLowLiquidity) {
+    if (currentQuote.isLowLiquidity) {
       openAlert({
         title: t('Pay attention!'),
         type: NotificationType.WARNING,
@@ -737,7 +714,7 @@ const Component = () => {
     } else {
       transactionBlockProcess();
     }
-  }, [accounts, chainValue, checkChainConnected, closeAlert, convertedNetworkFee, currentOptimalSwapPath, currentQuote, currentQuoteRequest, currentSlippage.slippage, feeAssetInfo, isSwapHydraDXExist, notify, onError, onSuccess, openAlert, processState.currentStep, processState.steps.length, t]);
+  }, [accounts, chainValue, checkChainConnected, closeAlert, currentOptimalSwapPath, currentQuote, currentQuoteRequest, currentSlippage.slippage, notify, onError, onSuccess, openAlert, processState.currentStep, processState.steps.length, t]);
 
   const destinationSwapValue = useMemo(() => {
     if (currentQuote) {
@@ -1601,15 +1578,19 @@ const Component = () => {
                                   onClick={openChooseFeeToken}
                                 >
                                   {convertedNetworkFee && (
-                                    <Number
-                                      className={'__network-fee-info'}
-                                      customFormatter={swapCustomFormatter}
-                                      decimal={0}
-                                      formatType={'custom'}
-                                      metadata={numberMetadata}
-                                      suffix={_getAssetSymbol(feeAssetInfo)}
-                                      value={convertedNetworkFee}
-                                    />
+                                    <>
+                                      <span>~&nbsp;</span>
+                                      <Number
+                                        className={'__network-fee-info'}
+                                        customFormatter={swapCustomFormatter}
+                                        decimal={0}
+                                        formatType={'custom'}
+                                        metadata={numberMetadata}
+                                        suffix={_getAssetSymbol(feeAssetInfo)}
+                                        unitOpacity={0.45}
+                                        value={convertedNetworkFee}
+                                      />
+                                    </>
                                   )}
                                   <Logo
                                     className='token-logo'
@@ -1740,7 +1721,7 @@ const Swap = styled(Wrapper)<Props>(({ theme: { token } }: Props) => {
       alignItems: 'center'
     },
     '.__network-fee-info': {
-      paddingRight: 8
+      paddingRight: 4
     },
     '.__quote-icon-info': {
       fontSize: 16,
@@ -1803,7 +1784,8 @@ const Swap = styled(Wrapper)<Props>(({ theme: { token } }: Props) => {
       paddingLeft: token.paddingXXS
     },
     '.__edit-token': {
-      paddingLeft: token.paddingXXS
+      paddingLeft: token.paddingXXS,
+      color: token.colorTextTertiary
     },
 
     '.free-balance': {

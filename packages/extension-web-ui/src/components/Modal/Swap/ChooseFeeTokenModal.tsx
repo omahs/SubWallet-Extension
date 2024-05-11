@@ -60,6 +60,7 @@ const Component: React.FC<Props> = (props: Props) => {
             <ChooseFeeItem
               amountToPay={estimatedFee}
               key={index}
+              modalId={modalId}
               onSelect={onSelectItem}
               selected={item === selectedItem}
               slug={item}

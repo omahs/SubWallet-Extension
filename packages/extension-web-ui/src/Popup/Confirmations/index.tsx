@@ -240,7 +240,7 @@ const Component = function ({ className }: Props) {
         case ExtrinsicType.SWAP:
           return t('Swap confirmation');
         case ExtrinsicType.SET_FEE_TOKEN:
-          return t('Swap confirmation');
+          return t('Change fee token confirm');
         case ExtrinsicType.CROWDLOAN:
         case ExtrinsicType.EVM_EXECUTE:
         case ExtrinsicType.UNKNOWN:

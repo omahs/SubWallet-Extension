@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { MetaInfo } from '@subwallet/extension-web-ui/components';
-import { toShort } from '@subwallet/extension-web-ui/utils';
 import CN from 'classnames';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,78 +12,65 @@ import { BaseTransactionConfirmationProps } from './Base';
 type Props = BaseTransactionConfirmationProps;
 
 const Component: React.FC<Props> = (props: Props) => {
-  const { className, transaction } = props;
+  const { className } = props;
   const { t } = useTranslation();
-
-  console.log('transaction', transaction);
+  // const assetRegistryMap = useSelector((state) => state.assetRegistry.assetRegistry);
+  // const priceMap = useSelector((state) => state.price.priceMap);
   // @ts-ignore
-  const data = transaction.data;
+  // const data = transaction.data;
 
-  console.log('data', data);
-
-  // console.log('data', data);
-  // const recipientAddress = data.recipient || data.address;
-  // const account = useGetAccountByAddress(recipientAddress);
-  // const networkPrefix = useGetChainPrefixBySlug(transaction.chain);
-  //
-  // const toAssetInfo = useMemo(() => {
-  //   return assetRegistryMap[data.quote.pair.to] || undefined;
-  // }, [assetRegistryMap, data.quote.pair.to]);
-  // const fromAssetInfo = useMemo(() => {
-  //   return assetRegistryMap[data.quote.pair.from] || undefined;
-  // }, [assetRegistryMap, data.quote.pair.from]);
-  //
-  // const estimatedFeeValue = useMemo(() => {
+  // TODO: Convert fee to dollar.
+  // const convertedBalanceValue = useMemo(() => {
   //   let totalBalance = BN_ZERO;
   //
-  //   data.quote.feeInfo.feeComponent.forEach((feeItem) => {
-  //     const asset = assetRegistryMap[feeItem.tokenSlug];
+  //   const asset = assetRegistryMap[feeItem.tokenSlug];
   //
-  //     if (asset) {
-  //       const { decimals, priceId } = asset;
-  //       const price = priceMap[priceId || ''] || 0;
+  //   if (asset) {
+  //     const { decimals, priceId } = asset;
+  //     const price = priceMap[priceId || ''] || 0;
   //
-  //       totalBalance = totalBalance.plus(new BigN(feeItem.amount).div(BN_TEN.pow(decimals || 0)).multipliedBy(price));
-  //     }
-  //   });
+  //     totalBalance = totalBalance.plus(new BigN(feeItem.amount).div(BN_TEN.pow(decimals || 0)).multipliedBy(price));
+  //   }
   //
   //   return totalBalance;
   // }, [assetRegistryMap, data.quote.feeInfo.feeComponent, priceMap]);
 
   return (
     <>
-      <MetaInfo
-        className={CN(className)}
-        hasBackgroundWrapper={true}
-      >
-        <MetaInfo.Account
-          address={'5EcpBQ1j8qu9vKddfCNwKQTGEd3ALo8h7Nqtc7xbFngsokDr'}
-          label={t('Account name')}
-          name={'Dung Nguyen'}
-          networkPrefix={42}
-        />
-        <MetaInfo.Default
-          className={'address-field'}
-          label={t('Address')}
+      <div className={CN(className)}>
+        {/* // TODO: Depends on the data, will the component be displayed or not? */}
+        {/* <SwapTransactionBlock */}
+        {/*  data={data} */}
+        {/* /> */}
+        <MetaInfo
+          hasBackgroundWrapper={true}
         >
-          {toShort('5EcpBQ1j8qu9vKddfCNwKQTGEd3ALo8h7Nqtc7xbFngsokDr')}
-        </MetaInfo.Default>
-        <MetaInfo.Chain
-          chain={'polkadot'}
-          label={t('Network')}
-        />
-      </MetaInfo>
-      <MetaInfo
-        className={CN(className)}
-        hasBackgroundWrapper={true}
-      >
-        <MetaInfo.Number
-          decimals={0}
-          label={t('Estimated fee')}
-          suffix={'HDX'}
-          value={transaction.estimateFee?.value || 0}
-        />
-      </MetaInfo>
+          <MetaInfo.Chain
+            chain={'polkadot'}
+            label={t('Network')}
+          />
+          <MetaInfo.Default
+            className={'__token-network-fee'}
+            label={t('Token for paying Network fee')}
+            valueColorSchema={'default'}
+          >
+          DOT
+          </MetaInfo.Default>
+          <MetaInfo.Number
+            decimals={0}
+            label={t('Estimated network fee')}
+            prefix={'$'}
+            value={'100'}
+          />
+          <MetaInfo.Number
+            className={'__convert-fee-value'}
+            decimals={0}
+            prefix={'~'}
+            suffix={'DOT'}
+            value={'20'}
+          />
+        </MetaInfo>
+      </div>
     </>
   );
 };
@@ -97,6 +83,9 @@ const SwapChooseFeeTransactionConfirmation = styled(Component)<Props>(({ theme: 
     },
     '.__swap-arrival-time': {
       marginTop: 12
+    },
+    '.__convert-fee-value.__row': {
+      marginTop: 0
     },
     '.__swap-quote-expired': {
       marginTop: 12
