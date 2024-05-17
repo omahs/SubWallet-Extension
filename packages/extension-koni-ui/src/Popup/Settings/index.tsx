@@ -286,7 +286,7 @@ function Component ({ className = '' }: Props): React.ReactElement<Props> {
         leftIcon: Globe,
         rightIcon: ArrowSquareOut,
         leftIconBgColor: token['purple-7'],
-        title: t('settings.aboutSubwallet.Modal.website'),
+        title: t('settings.entry.Modal.aboutSubwallet.website'),
         onClick: openInNewTab(WEBSITE_URL)
       },
       {
@@ -294,7 +294,7 @@ function Component ({ className = '' }: Props): React.ReactElement<Props> {
         leftIcon: BookBookmark,
         rightIcon: ArrowSquareOut,
         leftIconBgColor: token['volcano-7'],
-        title: t('settings.aboutSubwallet.Modal.ToS'),
+        title: t('settings.entry.Modal.aboutSubwallet.ToS'),
         onClick: openInNewTab(TERMS_OF_SERVICE_URL)
       },
       {
@@ -309,7 +309,7 @@ function Component ({ className = '' }: Props): React.ReactElement<Props> {
         ),
         rightIcon: ArrowSquareOut,
         leftIconBgColor: token.colorBgSecondary,
-        title: t('settings.aboutSubwallet.Modal.xTwitter'),
+        title: t('settings.entry.Modal.aboutSubwallet.xTwitter'),
         onClick: openInNewTab(TWITTER_URL)
       }
     ];
@@ -409,7 +409,7 @@ function Component ({ className = '' }: Props): React.ReactElement<Props> {
           className={CN(className, 'about-subwallet-modal')}
           id={modalId}
           onCancel={closeModal}
-          title={t('settings.aboutSubwallet.Modal.title')}
+          title={t('settings.entry.Modal.aboutSubwallet.title')}
         >
           {aboutSubwalletType.map((item) => (
             <div

@@ -206,7 +206,7 @@ const Component: React.FC<Props> = ({ className }: Props) => {
                   rel='noreferrer'
                   style={{ textDecoration: 'underline' }}
                   target={'_blank'}
-                >{t('settings.security.Screen.changePassword.link.learnMore')}</a>
+                >{t('settings.security.Screen.changePassword.Link.learnMore')}</a>
               </Checkbox>
             </Form.Item>
             <Form.Item

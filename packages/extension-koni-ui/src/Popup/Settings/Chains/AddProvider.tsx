@@ -274,7 +274,7 @@ function Component ({ className = '' }: Props): React.ReactElement<Props> {
       >
         <div className={'add_provider__container'}>
           <div className='description'>
-            {t('settings.Screen.manageNetworks.importNetworkModal.bodyTitle')}
+            {t('settings.Screen.manageNetworks.Modal.importNetwork.bodyTitle')}
           </div>
           <Form
             form={form}

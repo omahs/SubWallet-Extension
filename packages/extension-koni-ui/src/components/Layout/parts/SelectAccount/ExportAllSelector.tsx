@@ -228,7 +228,7 @@ const Component = (props: Props, ref: ForwardedRef<InputRef>) => {
           renderWhenEmpty={renderEmpty}
           searchFunction={searchAccountFunction}
           searchMinCharactersCount={2}
-          searchPlaceholder={t<string>('common.Text.Account.searchPlaceHolder')}
+          searchPlaceholder={t<string>('common.Search.Account.placeHolder')}
           showActionBtn
         />
       </SwModal>

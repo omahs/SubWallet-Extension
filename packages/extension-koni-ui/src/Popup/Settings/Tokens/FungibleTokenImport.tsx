@@ -347,7 +347,7 @@ function Component ({ className = '' }: Props): React.ReactElement<Props> {
               rules={[
                 {
                   required: true,
-                  message: t('common.Text.FormRule.tokenName')
+                  message: t('settings.Screen.manageTokens.Modal.importTokens.FormRule.tokenName')
                 }
               ]}
               statusHelpAsTooltip={true}

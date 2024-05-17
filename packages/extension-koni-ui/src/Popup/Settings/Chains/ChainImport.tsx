@@ -300,11 +300,11 @@ function Component ({ className = '' }: Props): React.ReactElement<Props> {
             onClick: handleClickSubheaderButton
           }
         ]}
-        title={t<string>('settings.Screen.manageNetworks.importNetworkModal.title')}
+        title={t<string>('settings.Screen.manageNetworks.Modal.importNetwork.title')}
       >
         <div className={'chain_import__container'}>
           <div className={'chain_import__header_info'}>
-            {t('settings.Screen.manageNetworks.importNetworkModal.bodyTitle')}
+            {t('settings.Screen.manageNetworks.Modal.importNetwork.bodyTitle')}
           </div>
           <Form
             disabled={loading}
@@ -319,7 +319,7 @@ function Component ({ className = '' }: Props): React.ReactElement<Props> {
               >
                 <Input
                   disabled={isValidating}
-                  placeholder={t('settings.Screen.chainImport.Input.providerUrl.placeHolder')}
+                  placeholder={t('settings.Screen.importNetwork.Input.providerUrl.placeHolder')}
                   prefix={(
                     <Icon
                       customSize={'24px'}
@@ -330,7 +330,7 @@ function Component ({ className = '' }: Props): React.ReactElement<Props> {
                     />
                   )}
                   suffix={providerSuffix()}
-                  tooltip={t('settings.Screen.chainImport.Input.providerUrl.tooltip')}
+                  tooltip={t('settings.Screen.importNetwork.Input.providerUrl.tooltip')}
                   tooltipPlacement={'topLeft'}
                 />
               </Form.Item>

@@ -347,7 +347,7 @@ const Component: React.FC<Props> = (props: Props) => {
               <Form.Item>
                 <Field
                   content={currentAccount.name || ''}
-                  label={t('common.Text.Account.label')}
+                  label={t('common.Account.label')}
                   placeholder={t('common.Text.Account.searchPlaceHolder')}
                 />
               </Form.Item>
