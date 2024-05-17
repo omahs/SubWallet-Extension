@@ -360,7 +360,7 @@ function Component ({ className }: Props): React.ReactElement<Props> {
         rightIconProps={rightButton}
         searchFunction={searchAccountFunction}
         searchMinCharactersCount={2}
-        searchPlaceholder={t<string>('Account name')}
+        searchPlaceholder={t<string>('common.Text.Account.searchPlaceHolder')}
         selected={currentAccount?.address || ''}
         shape='round'
         size='small'

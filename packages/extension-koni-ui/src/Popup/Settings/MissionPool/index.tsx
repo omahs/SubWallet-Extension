@@ -195,7 +195,7 @@ const Component: React.FC<Props> = ({ className }: Props) => {
         />
       </div>
       <FilterModal
-        applyFilterButtonTitle={t('Apply filter')}
+        applyFilterButtonTitle={t('common.Button.applyFilter')}
         id={FILTER_MODAL_ID}
         onApplyFilter={onApplyFilter}
         onCancel={onCloseFilterModal}

@@ -319,7 +319,7 @@ function Component ({ className = '' }: Props): React.ReactElement<Props> {
               >
                 <Input
                   disabled={isValidating}
-                  placeholder={t('common.Text.providerUrl')}
+                  placeholder={t('settings.Screen.chainImport.Input.providerUrl.placeHolder')}
                   prefix={(
                     <Icon
                       customSize={'24px'}
@@ -330,7 +330,7 @@ function Component ({ className = '' }: Props): React.ReactElement<Props> {
                     />
                   )}
                   suffix={providerSuffix()}
-                  tooltip={t('common.Text.providerUrl')}
+                  tooltip={t('settings.Screen.chainImport.Input.providerUrl.tooltip')}
                   tooltipPlacement={'topLeft'}
                 />
               </Form.Item>

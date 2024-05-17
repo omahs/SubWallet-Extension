@@ -255,7 +255,7 @@ const Component = () => {
           onClick={goHome}
           schema={'secondary'}
         >
-          {t('Cancel')}
+          {t('common.Button.cancel')}
         </Button>
 
         <Button

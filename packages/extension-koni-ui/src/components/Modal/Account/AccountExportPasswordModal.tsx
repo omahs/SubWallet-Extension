@@ -146,7 +146,7 @@ function Component ({ addresses, className = '' }: Props): React.ReactElement<Pr
               onClick={closeModal}
               schema='secondary'
             >
-              {t('Cancel')}
+              {t('common.Button.cancel')}
             </Button>
             <Button
               block={true}

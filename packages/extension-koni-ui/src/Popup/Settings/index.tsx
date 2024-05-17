@@ -397,7 +397,7 @@ function Component ({ className = '' }: Props): React.ReactElement<Props> {
             onClick={onLock}
             schema={'secondary'}
           >
-            {t('Lock')}
+            {t('settings.Screen.settingsEntry.Button.lock')}
           </Button>
 
           <div className={'__version'}>
@@ -409,7 +409,7 @@ function Component ({ className = '' }: Props): React.ReactElement<Props> {
           className={CN(className, 'about-subwallet-modal')}
           id={modalId}
           onCancel={closeModal}
-          title={t('About SubWallet')}
+          title={t('settings.aboutSubwallet.Modal.title')}
         >
           {aboutSubwalletType.map((item) => (
             <div

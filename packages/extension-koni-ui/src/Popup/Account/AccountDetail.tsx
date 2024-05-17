@@ -461,9 +461,9 @@ const Component: React.FC<Props> = (props: Props) => {
               <Input
                 className='account-name-input'
                 disabled={deriving || zkModeSyncState.isSyncing || account.isInjected}
-                label={t('Account name')}
+                label={t('common.Text.Account.label')}
                 onBlur={form.submit}
-                placeholder={t('Account name')}
+                placeholder={t('common.Text.Account.searchPlaceHolder')}
                 prefix={(
                   <BackgroundIcon
                     backgroundColor='var(--wallet-name-icon-bg-color)'

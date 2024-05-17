@@ -139,7 +139,7 @@ const Component: React.FC<Props> = ({ className }: Props) => {
         renderWhenEmpty={renderEmpty}
         rowGap='var(--row-gap)'
         searchFunction={searchAccountFunction}
-        searchPlaceholder={t<string>('Account name')}
+        searchPlaceholder={t<string>('common.Text.Account.searchPlaceHolder')}
       />
     </SwModal>
   );

@@ -42,13 +42,13 @@ const Component: React.FC<Props> = (props: Props) => {
 
     switch (errorCode) {
       case _CHAIN_VALIDATION_ERROR.CONNECTION_FAILURE:
-        return t('Cannot connect to this provider');
+        return t('settings.Screen.importNetwork.Input.providerUrl.ErrorTooltip.connectFailure');
       case _CHAIN_VALIDATION_ERROR.EXISTED_PROVIDER:
-        return t('This provider has already been added');
+        return t('settings.Screen.importNetwork.Input.providerUrl.ErrorTooltip.providerAdded');
       case _CHAIN_VALIDATION_ERROR.EXISTED_CHAIN:
-        return t('This chain has already been added');
+        return t('settings.Screen.importNetwork.Input.providerUrl.ErrorTooltip.chainAdded');
       default:
-        return t('Error validating this provider');
+        return t('settings.Screen.importNetwork.Input.providerUrl.ErrorTooltip.validating');
     }
   }, [t]);
 
@@ -197,7 +197,7 @@ const Component: React.FC<Props> = (props: Props) => {
           onClick={onCancel}
           schema={'secondary'}
         >
-          {t('Cancel')}
+          {t('common.Button.cancel')}
         </Button>
         <Button
           disabled={mode === 'update' || unconfirmed || !!providerError}
