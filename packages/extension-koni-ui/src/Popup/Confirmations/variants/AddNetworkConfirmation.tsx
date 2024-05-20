@@ -184,7 +184,7 @@ const Component: React.FC<Props> = (props: Props) => {
       </div>
       <div className='confirmation-footer'>
         {mode === 'update' && (<div className={'warning-message'}>
-          {t('settings.Screen.importNetwork.Confirmation.footer')}
+          {t('settings.Screen.importNetwork.Warning.networkExist')}
         </div>)}
         <Button
           disabled={loading}

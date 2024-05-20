@@ -115,11 +115,11 @@ function Component ({ className = '' }: Props): React.ReactElement<Props> {
                   setLoading(false);
 
                   if (validationResult.isExist) {
-                    reject(new Error(t('settings.manageTokens.Modal.importTokens.contractValidate.exist')));
+                    reject(new Error(t('settings.manageTokens.Modal.importTokens.Input.contract.Error.exist')));
                   }
 
                   if (validationResult.contractError) {
-                    reject(new Error(t('settings.manageTokens.Modal.importTokens.contractValidate.error')));
+                    reject(new Error(t('settings.manageTokens.Modal.importTokens.Input.contract.Error.internalError')));
                   }
 
                   if (!validationResult.isExist && !validationResult.contractError) {
@@ -134,10 +134,10 @@ function Component ({ className = '' }: Props): React.ReactElement<Props> {
                 })
                 .catch(() => {
                   setLoading(false);
-                  reject(new Error(t('settings.manageTokens.Modal.importTokens.contractValidate.error')));
+                  reject(new Error(t('settings.manageTokens.Modal.importTokens.Input.contract.Error.internalError')));
                 });
             } else {
-              reject(t('settings.manageTokens.Modal.importTokens.contractValidate.invalid'));
+              reject(t('settings.manageTokens.Modal.importTokens.Input.contract.Error.invalid'));
             }
           });
         }
@@ -204,18 +204,18 @@ function Component ({ className = '' }: Props): React.ReactElement<Props> {
       .then((result) => {
         if (result) {
           showNotification({
-            message: t('settings.manageTokens.Modal.importTokens.success')
+            message: t('settings.manageTokens.Modal.importTokens.SubmitResponse.success')
           });
           goBack();
         } else {
           showNotification({
-            message: t('settings.manageTokens.Modal.importTokens.error')
+            message: t('settings.manageTokens.Modal.importTokens.SubmitResponse.error')
           });
         }
       })
       .catch(() => {
         showNotification({
-          message: t('settings.manageTokens.Modal.importTokens.error')
+          message: t('settings.manageTokens.Modal.importTokens.SubmitResponse.error')
         });
       })
       .finally(() => {

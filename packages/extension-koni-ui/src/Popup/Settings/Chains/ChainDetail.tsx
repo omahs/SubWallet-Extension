@@ -246,7 +246,7 @@ function Component ({ className = '' }: Props): React.ReactElement<Props> {
       if (value.length === 0 || isUrl(value)) {
         resolve();
       } else {
-        reject(new Error(t('settings.Screen.importNetwork.Input.crowdloan')));
+        reject(new Error(t('settings.Screen.importNetwork.Input.crowdloan.Error.invalidURL')));
       }
     });
   }, [t]);
@@ -256,7 +256,7 @@ function Component ({ className = '' }: Props): React.ReactElement<Props> {
       if (value.length === 0 || isUrl(value)) {
         resolve();
       } else {
-        reject(new Error(t('settings.Screen.importNetwork.Input.blockExplorer')));
+        reject(new Error(t('settings.Screen.importNetwork.Input.blockExplorer.Error.invalidURL')));
       }
     });
   }, [t]);
