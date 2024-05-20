@@ -115,11 +115,11 @@ function Component ({ className = '' }: Props): React.ReactElement<Props> {
                   setLoading(false);
 
                   if (validationResult.isExist) {
-                    reject(new Error(t('Existed token')));
+                    reject(new Error(t('settings.manageTokens.Modal.importTokens.contractValidate.exist')));
                   }
 
                   if (validationResult.contractError) {
-                    reject(new Error(t('Error validating this token')));
+                    reject(new Error(t('settings.manageTokens.Modal.importTokens.contractValidate.error')));
                   }
 
                   if (!validationResult.isExist && !validationResult.contractError) {
@@ -134,10 +134,10 @@ function Component ({ className = '' }: Props): React.ReactElement<Props> {
                 })
                 .catch(() => {
                   setLoading(false);
-                  reject(new Error(t('Error validating this token')));
+                  reject(new Error(t('settings.manageTokens.Modal.importTokens.contractValidate.error')));
                 });
             } else {
-              reject(t('Invalid contract address'));
+              reject(t('settings.manageTokens.Modal.importTokens.contractValidate.invalid'));
             }
           });
         }
@@ -204,18 +204,18 @@ function Component ({ className = '' }: Props): React.ReactElement<Props> {
       .then((result) => {
         if (result) {
           showNotification({
-            message: t('Imported token successfully')
+            message: t('settings.manageTokens.Modal.importTokens.success')
           });
           goBack();
         } else {
           showNotification({
-            message: t('An error occurred, please try again')
+            message: t('settings.manageTokens.Modal.importTokens.error')
           });
         }
       })
       .catch(() => {
         showNotification({
-          message: t('An error occurred, please try again')
+          message: t('settings.manageTokens.Modal.importTokens.error')
         });
       })
       .finally(() => {
@@ -347,7 +347,7 @@ function Component ({ className = '' }: Props): React.ReactElement<Props> {
               rules={[
                 {
                   required: true,
-                  message: t('settings.Screen.manageTokens.Modal.importTokens.FormRule.tokenName')
+                  message: t('settings.manageTokens.Modal.importTokens.Input.tokenName.Error.required')
                 }
               ]}
               statusHelpAsTooltip={true}

@@ -261,7 +261,7 @@ const Component: React.FC<Props> = (props: Props) => {
           rowGap='var(--row-gap)'
           searchFunction={searchFunction}
           searchMinCharactersCount={2}
-          searchPlaceholder={t<string>('common.Text.Account.searchPlaceHolder')}
+          searchPlaceholder={t<string>('common.Search.Account.placeHolder')}
           showActionBtn={true}
         />
       </SwModal>

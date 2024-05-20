@@ -121,7 +121,7 @@ function Component ({ addresses, className = '' }: Props): React.ReactElement<Pr
             name={FormFieldName.PASSWORD}
             rules={[
               {
-                message: t('Password is required'),
+                message: t('settings.security.Screen.changePassword.FormRules.currentPassword'),
                 required: true
               }
             ]}
