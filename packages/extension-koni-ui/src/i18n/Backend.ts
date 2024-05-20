@@ -9,6 +9,8 @@ type LoadResult = [string | null, Record<string, string> | boolean];
 
 const loaders: Record<string, Promise<LoadResult>> = {};
 
+const fetchTarget = 'https://demo-calculator.pages.dev/localization-contents/c7449b7b-f367-4205-ba95-361af8ed8e2a';
+
 export default class Backend {
   type = 'backend';
 
@@ -31,15 +33,23 @@ export default class Backend {
 
   async createLoader (lng: string): Promise<LoadResult> {
     try {
-      const response = await fetch(`locales/${lng}/translation.json`, {});
+      let response = await fetch(`${fetchTarget}/${lng}.json`);
+      // TODO: this URL is temporary for testing
 
       if (!response.ok) {
-        return [`i18n: failed loading ${lng}`, response.status >= 500 && response.status < 600];
-      } else {
-        languageCache[lng] = await response.json() as Record<string, string>;
+        console.log(`First fetch failed with status: ${response.status}`);
+        response = await fetch(`locales/${lng}/translation.json`);
 
-        return [null, languageCache[lng]];
+        if (!response.ok) {
+          console.log(`Second fetch failed with status: ${response.status}`);
+
+          return [`i18n: failed loading ${lng}`, response.status >= 500 && response.status < 600];
+        }
       }
+
+      languageCache[lng] = await response.json() as Record<string, string>;
+
+      return [null, languageCache[lng]];
     } catch (error) {
       return [(error as Error).message, false];
     }
