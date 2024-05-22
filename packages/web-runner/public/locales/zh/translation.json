@@ -1392,7 +1392,7 @@
   "settings.manageTokens.Modal.importTokens.Input.contract.Error.internalError": "",
   "settings.manageTokens.Modal.importTokens.Input.contract.Error.invalid": "",
   "settings.manageTokens.Modal.importTokens.SubmitResponse.success": "",
-  "settings.manageTokens.Modal.importTokens.SubmitResponse.error": ""
+  "settings.manageTokens.Modal.importTokens.SubmitResponse.error": "",
   "Search currency": "",
   "Program ID": ""
 }
