@@ -44,10 +44,10 @@ const Component: React.FC<Props> = ({ className }: Props) => {
 
   const filterOptions = useMemo(() => [
     ...missionCategories.map((c) => ({
-      label: c.name,
+      label: t(`${c.name}`),
       value: c.slug
     }))
-  ], []);
+  ], [t]);
 
   const filterTabItems = useMemo<FilterTabItemType[]>(() => {
     return [
