@@ -1277,7 +1277,6 @@
   "Select a currency": "",
   "This pool has reached the maximum number of members. Select another to continue": "",
   "Member": "",
-  "Search currency": "",
   "common.Account.label": "",
   "Password is required": "",
   "Please type or paste an address": "",
@@ -1394,4 +1393,6 @@
   "settings.manageTokens.Modal.importTokens.Input.contract.Error.invalid": "",
   "settings.manageTokens.Modal.importTokens.SubmitResponse.success": "",
   "settings.manageTokens.Modal.importTokens.SubmitResponse.error": ""
+  "Search currency": "",
+  "Program ID": ""
 }

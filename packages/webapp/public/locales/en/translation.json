@@ -1316,7 +1316,6 @@
   "Select a currency": "",
   "This pool has reached the maximum number of members. Select another to continue": "",
   "Member": "",
-  "Search currency": "",
   "Network details": "",
   "common.Text.providerUrl": "Provider URL",
   "New password": "",
@@ -1394,4 +1393,6 @@
   "Custom tokens": "",
   "Password is required": "",
   "settings.Screen.manageTokens.importTokens.title": ""
+  "Search currency": "",
+  "Program ID": ""
 }
