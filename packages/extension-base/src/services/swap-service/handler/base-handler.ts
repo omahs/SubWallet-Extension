@@ -17,6 +17,8 @@ import { t } from 'i18next';
 import { isEthereumAddress } from '@polkadot/util-crypto';
 
 export interface SwapBaseInterface {
+  providerSlug: SwapProviderId;
+
   getSwapQuote: (request: SwapRequest) => Promise<SwapQuote | SwapError>;
   generateOptimalProcess: (params: OptimalSwapPathParams) => Promise<OptimalSwapPath>;
 
@@ -33,14 +35,14 @@ export interface SwapBaseInterface {
 }
 
 export interface SwapBaseHandlerInitParams {
-  providerSlug: string,
+  providerSlug: SwapProviderId,
   providerName: string,
   chainService: ChainService,
   balanceService: BalanceService
 }
 
 export class SwapBaseHandler {
-  private readonly providerSlug: string;
+  private readonly providerSlug: SwapProviderId;
   private readonly providerName: string;
   public chainService: ChainService;
   public balanceService: BalanceService;
@@ -264,7 +266,7 @@ export class SwapBaseHandler {
 
   get providerInfo (): SwapProvider {
     return {
-      id: this.providerSlug as SwapProviderId,
+      id: this.providerSlug,
       name: this.providerName
     };
   }
