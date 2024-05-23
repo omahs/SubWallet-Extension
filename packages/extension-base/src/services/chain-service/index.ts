@@ -22,6 +22,20 @@ import Web3 from 'web3';
 import { logger as createLogger } from '@polkadot/util/logger';
 import { Logger } from '@polkadot/util/types';
 
+const filterChainInfoMap = (data: Record<string, _ChainInfo>): Record<string, _ChainInfo> => {
+  return Object.fromEntries(
+    Object.entries(data)
+      .filter(([, info]) => !info.bitcoinInfo)
+  );
+};
+
+const filterAssetInfoMap = (chainInfo: Record<string, _ChainInfo>, assets: Record<string, _ChainAsset>): Record<string, _ChainAsset> => {
+  return Object.fromEntries(
+    Object.entries(assets)
+      .filter(([, info]) => chainInfo[info.originChain])
+  );
+};
+
 export class ChainService {
   private dataMap: _DataMap = {
     chainInfoMap: {},
@@ -278,7 +292,7 @@ export class ChainService {
   }
 
   public getSupportedSmartContractTypes () {
-    return [_AssetType.ERC20, _AssetType.ERC721, _AssetType.PSP22, _AssetType.PSP34];
+    return [_AssetType.ERC20, _AssetType.ERC721, _AssetType.PSP22, _AssetType.PSP34, _AssetType.GRC20, _AssetType.GRC721];
   }
 
   public getActiveChainInfoMap () {
@@ -590,8 +604,6 @@ export class ChainService {
     await this.initAssetSettings();
     this.initAssetRefMap();
     await this.autoEnableTokens();
-
-    this.checkLatestData();
   }
 
   initAssetRefMap () {
@@ -673,7 +685,7 @@ export class ChainService {
         const latestAssetPatch = JSON.stringify(latestAssetInfo);
 
         if (this.assetMapPatch !== latestAssetPatch) {
-          const assetRegistry = { ...ChainAssetMap, ...latestAssetInfo };
+          const assetRegistry = filterAssetInfoMap(this.getChainInfoMap(), { ...ChainAssetMap, ...latestAssetInfo });
 
           this.assetMapPatch = latestAssetPatch;
           this.dataMap.assetRegistry = assetRegistry;
@@ -881,23 +893,28 @@ export class ChainService {
     this.lockChainInfoMap = true;
 
     const initPromises = chainSlugs.map(async (chainSlug) => {
-      const chainInfo = chainInfoMap[chainSlug];
-      const currentState = chainStateMap[chainSlug]?.active;
+      // Add try catch to prevent one chain error stop the whole process
+      try {
+        const chainInfo = chainInfoMap[chainSlug];
+        const currentState = chainStateMap[chainSlug]?.active;
 
-      if (!currentState) {
-        this.dbService.updateChainStore({
-          ...chainInfo,
-          active: true,
-          currentProvider: chainStateMap[chainSlug].currentProvider,
-          manualTurnOff: !!chainStateMap[chainSlug].manualTurnOff
-        }).catch(console.error);
+        if (!currentState) {
+          // Enable chain success then update chain state
+          await this.initApiForChain(chainInfo);
 
-        chainStateMap[chainSlug].active = true;
-        await this.initApiForChain(chainInfo);
+          this.dbService.updateChainStore({
+            ...chainInfo,
+            active: true,
+            currentProvider: chainStateMap[chainSlug].currentProvider,
+            manualTurnOff: !!chainStateMap[chainSlug].manualTurnOff
+          }).catch(console.error);
 
-        this.eventService.emit('chain.updateState', chainSlug);
-        needUpdate = true;
-      }
+          chainStateMap[chainSlug].active = true;
+
+          this.eventService.emit('chain.updateState', chainSlug);
+          needUpdate = true;
+        }
+      } catch (e) {}
     });
 
     await Promise.all(initPromises);
@@ -1018,7 +1035,7 @@ export class ChainService {
 
   private async initChains () {
     const storedChainSettings = await this.dbService.getAllChainStore();
-    const defaultChainInfoMap = ChainInfoMap;
+    const defaultChainInfoMap = filterChainInfoMap(ChainInfoMap);
     const storedChainSettingMap: Record<string, IChain> = {};
 
     storedChainSettings.forEach((chainStoredSetting) => {
@@ -1143,6 +1160,7 @@ export class ChainService {
               providers: storedChainInfo.providers, // TODO: review
               evmInfo: storedChainInfo.evmInfo,
               substrateInfo: storedChainInfo.substrateInfo,
+              bitcoinInfo: storedChainInfo.bitcoinInfo ?? null,
               isTestnet: storedChainInfo.isTestnet,
               chainStatus: storedChainInfo.chainStatus,
               icon: storedChainInfo.icon,
@@ -1199,7 +1217,7 @@ export class ChainService {
 
   private async initAssetRegistry (deprecatedCustomChainMap: Record<string, string>) {
     const storedAssetRegistry = await this.dbService.getAllAssetStore();
-    const latestAssetRegistry = ChainAssetMap;
+    const latestAssetRegistry = filterAssetInfoMap(this.getChainInfoMap(), ChainAssetMap);
     const availableChains = Object.values(this.dataMap.chainInfoMap)
       .filter((info) => (info.chainStatus === _ChainStatus.ACTIVE))
       .map((chainInfo) => chainInfo.slug);
@@ -1378,6 +1396,7 @@ export class ChainService {
       providers: params.chainEditInfo.providers,
       substrateInfo,
       evmInfo,
+      bitcoinInfo: null,
       isTestnet: false,
       chainStatus: _ChainStatus.ACTIVE,
       icon: '', // Todo: Allow update with custom chain,
@@ -1640,9 +1659,9 @@ export class ChainService {
 
   private async getSmartContractTokenInfo (contractAddress: string, tokenType: _AssetType, originChain: string, contractCaller?: string): Promise<_SmartContractTokenInfo> {
     if ([_AssetType.ERC721, _AssetType.ERC20].includes(tokenType)) {
-      return await this.evmChainHandler.getSmartContractTokenInfo(contractAddress, tokenType, originChain);
-    } else if ([_AssetType.PSP34, _AssetType.PSP22].includes(tokenType)) {
-      return await this.substrateChainHandler.getSmartContractTokenInfo(contractAddress, tokenType, originChain, contractCaller);
+      return await this.evmChainHandler.getEvmContractTokenInfo(contractAddress, tokenType, originChain);
+    } else if ([_AssetType.PSP34, _AssetType.PSP22, _AssetType.GRC20].includes(tokenType)) {
+      return await this.substrateChainHandler.getSubstrateContractTokenInfo(contractAddress, tokenType, originChain, contractCaller);
     }
 
     return {
