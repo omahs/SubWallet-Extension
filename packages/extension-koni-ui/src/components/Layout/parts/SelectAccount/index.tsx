@@ -330,15 +330,13 @@ function Component ({ className, id }: Props): React.ReactElement<Props> {
     return ({
       icon: (
         <Icon
-          className={CN({
-            '__export-remind-btn': isRemindSeedPhrase
-          })}
+          className={CN('__export-remind-btn')}
           phosphorIcon={Export}
           weight='fill'
         />
       ),
       children: (
-        isRemindSeedPhrase && <Tooltip
+        <Tooltip
           className={'__icon-export-remind'}
           open={true}
           overlayClassName={CN('__tooltip-overlay-remind')}
