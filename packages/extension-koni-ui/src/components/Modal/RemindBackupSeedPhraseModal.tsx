@@ -26,11 +26,10 @@ function Component ({ className }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { currentAccount, isAllAccount } = useSelector((state: RootState) => state.accountState);
   const location = useLocation();
-  const { activeModal, checkActive, inactiveModal } = useContext(ModalContext);
+  const { activeModal, inactiveModal } = useContext(ModalContext);
   const { sessionLatest, setSessionLatest } = useSetSessionLatest();
   const navigate = useNavigate();
   const { token } = useTheme() as Theme;
-  const isActiveModal = useMemo(() => checkActive(AccountSelectorModalId), [checkActive]);
 
   const onCancel = useCallback(() => {
     inactiveModal(RemindBackupSeedPhraseModalId);
@@ -56,18 +55,6 @@ function Component ({ className }: Props): React.ReactElement<Props> {
       inactiveModal(RemindBackupSeedPhraseModalId);
     }
   }, [inactiveModal, sessionLatest.remind]);
-
-  useEffect(() => {
-    const element = document.getElementsByClassName('__tooltip-overlay-remind')[0];
-
-    if (element) {
-      if (element.classList.contains('ant-tooltip-hidden')) {
-        isActiveModal && element.classList.remove('ant-tooltip-hidden');
-      } else {
-        (!isActiveModal) && element.classList.add('ant-tooltip-hidden');
-      }
-    }
-  }, [isActiveModal]);
 
   const footerModal = useMemo(() => {
     return (
