@@ -31,7 +31,7 @@
   "settings.Screen.securitySetting.Item.phishingDetection": "高度なフィッシング検出",
   "settings.Screen.securitySetting.Item.cameraAccess": "QRのカメラアクセス",
   "settings.Screen.websiteAccess.searchPlaceHolder": "Webサイトを検索または入力",
-  "settings.Screen.manageNetworks.searchPlaceHolder": "Search networks",
+  "settings.Screen.manageNetworks.searchPlaceHolder": "ネットワークを検索",
   "settings.Screen.manageTokens.searchPlaceHolder": "トークンを検索",
   "settings.Screen.generalSetting.language.selectLanguage.title": "言語",
   "settings.Screen.generalSetting.notification.selectPlatform.title": "Notifications",
