@@ -13,11 +13,11 @@ import { ThemeProps } from '@subwallet/extension-koni-ui/types';
 import { findAccountByAddress, funcSortByName, isAccountAll, searchAccountFunction } from '@subwallet/extension-koni-ui/utils';
 import { BackgroundIcon, ButtonProps, Icon, ModalContext, SelectModal, Tooltip } from '@subwallet/react-ui';
 import CN from 'classnames';
-import { Export, Plug, Plugs, PlugsConnected } from 'phosphor-react';
+import {Circle, Export, Plug, Plugs, PlugsConnected} from 'phosphor-react';
 import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, {useTheme} from 'styled-components';
 
 import { isEthereumAddress } from '@polkadot/util-crypto';
 
@@ -69,6 +69,7 @@ function Component ({ className }: Props): React.ReactElement<Props> {
   const currentAuth = useGetCurrentAuth();
   const isPopup = useIsPopup();
   const [selectedQrAddress, setSelectedQrAddress] = useState<string | undefined>();
+  const { token } = useTheme() as Theme;
 
   const accounts = useMemo((): AccountJson[] => {
     const result = [..._accounts].sort(funcSortByName);
@@ -314,10 +315,27 @@ function Component ({ className }: Props): React.ReactElement<Props> {
         weight='fill'
       />
     ),
+    children: (
+      <Tooltip
+        className={'__icon-export-remind'}
+        open={true}
+        overlayClassName={CN('__tooltip-overlay-remind')}
+        placement={'bottomLeft'}
+        title={t('Export and back up accounts')}
+      >
+        <div>
+          <Icon
+            customSize={'7.39px'}
+            iconColor={token.colorHighlight}
+            phosphorIcon={Circle}
+            weight={'fill'}
+          />
+        </div>
+      </Tooltip>
+    ),
     onClick: exportAllAccounts,
     size: 'xs',
     type: 'ghost',
-    tooltip: t('Export account'),
     tooltipPlacement: 'topLeft'
   }), [exportAllAccounts, t]);
 
@@ -488,6 +506,12 @@ const SelectAccount = styled(Component)<Props>(({ theme }) => {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8
+    },
+
+    '.__icon-export-remind': {
+      position: 'absolute',
+      top: '-35%',
+      left: '40%'
     },
 
     '.connect-icon': {
