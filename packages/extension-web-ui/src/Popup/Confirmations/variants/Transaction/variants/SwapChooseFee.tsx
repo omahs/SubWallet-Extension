@@ -1,9 +1,13 @@
 // Copyright 2019-2022 @subwallet/extension-web-ui authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { RequestChangeFeeToken } from '@subwallet/extension-base/background/KoniTypes';
+import { _getAssetDecimals, _getAssetPriceId, _getAssetSymbol } from '@subwallet/extension-base/services/chain-service/utils';
 import { MetaInfo } from '@subwallet/extension-web-ui/components';
+import { useSelector } from '@subwallet/extension-web-ui/hooks';
+import BigN from 'bignumber.js';
 import CN from 'classnames';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
@@ -12,62 +16,63 @@ import { BaseTransactionConfirmationProps } from './Base';
 type Props = BaseTransactionConfirmationProps;
 
 const Component: React.FC<Props> = (props: Props) => {
-  const { className } = props;
+  const { className, transaction } = props;
   const { t } = useTranslation();
-  // const assetRegistryMap = useSelector((state) => state.assetRegistry.assetRegistry);
-  // const priceMap = useSelector((state) => state.price.priceMap);
-  // @ts-ignore
-  // const data = transaction.data;
+  const assetRegistryMap = useSelector((state) => state.assetRegistry.assetRegistry);
+  const { currencyData, priceMap } = useSelector((state) => state.price);
 
-  // TODO: Convert fee to dollar.
-  // const convertedBalanceValue = useMemo(() => {
-  //   let totalBalance = BN_ZERO;
-  //
-  //   const asset = assetRegistryMap[feeItem.tokenSlug];
-  //
-  //   if (asset) {
-  //     const { decimals, priceId } = asset;
-  //     const price = priceMap[priceId || ''] || 0;
-  //
-  //     totalBalance = totalBalance.plus(new BigN(feeItem.amount).div(BN_TEN.pow(decimals || 0)).multipliedBy(price));
-  //   }
-  //
-  //   return totalBalance;
-  // }, [assetRegistryMap, data.quote.feeInfo.feeComponent, priceMap]);
+  const { convertedFeeAmount, selectedFeeToken } = useMemo(() => {
+    return transaction.data as RequestChangeFeeToken;
+  }, [transaction.data]);
+
+  console.log(convertedFeeAmount);
+
+  const selectedFeeTokenInfo = useMemo(() => {
+    return assetRegistryMap[selectedFeeToken];
+  }, [assetRegistryMap, selectedFeeToken]);
+
+  const defaultFeeValueInFiatPrice = useMemo(() => {
+    if (!transaction.estimateFee) {
+      return '0';
+    }
+
+    const defaultFeeTokenInfo = assetRegistryMap[transaction.estimateFee.feeTokenSlug];
+
+    const bnAmount = new BigN(transaction.estimateFee.value).shiftedBy(-1 * transaction.estimateFee.decimals);
+    const price = priceMap[_getAssetPriceId(defaultFeeTokenInfo)] || 0;
+
+    return bnAmount.multipliedBy(price).toString();
+  }, [assetRegistryMap, priceMap, transaction.estimateFee]);
 
   return (
     <>
       <div className={CN(className)}>
-        {/* // TODO: Depends on the data, will the component be displayed or not? */}
-        {/* <SwapTransactionBlock */}
-        {/*  data={data} */}
-        {/* /> */}
         <MetaInfo
           hasBackgroundWrapper={true}
         >
           <MetaInfo.Chain
-            chain={'polkadot'}
+            chain={transaction.chain}
             label={t('Network')}
           />
           <MetaInfo.Default
             className={'__token-network-fee'}
-            label={t('Token for paying Network fee')}
+            label={t('Token for paying network fee')}
             valueColorSchema={'default'}
           >
-          DOT
+            {_getAssetSymbol(selectedFeeTokenInfo)}
           </MetaInfo.Default>
           <MetaInfo.Number
             decimals={0}
             label={t('Estimated network fee')}
-            prefix={'$'}
-            value={'100'}
+            prefix={(currencyData.isPrefix && currencyData.symbol) || ''}
+            value={defaultFeeValueInFiatPrice}
           />
           <MetaInfo.Number
             className={'__convert-fee-value'}
-            decimals={0}
+            decimals={_getAssetDecimals(selectedFeeTokenInfo)}
             prefix={'~'}
-            suffix={'DOT'}
-            value={'20'}
+            suffix={_getAssetSymbol(selectedFeeTokenInfo)}
+            value={convertedFeeAmount}
           />
         </MetaInfo>
       </div>

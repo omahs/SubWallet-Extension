@@ -165,9 +165,9 @@ export class HydradxHandler implements SwapBaseInterface {
       return Promise.resolve(undefined);
     }
 
-    const selectedFeeToken = params.selectedQuote.feeInfo.selectedFeeToken;
+    const selectedFeeTokenSlug = params.selectedQuote.feeInfo.selectedFeeToken;
 
-    if (!selectedFeeToken) {
+    if (!selectedFeeTokenSlug) {
       return undefined;
     }
 
@@ -183,26 +183,35 @@ export class HydradxHandler implements SwapBaseInterface {
       const _currentFeeAssetId = await chainApi.api.query.multiTransactionPayment.accountCurrencyMap(params.request.address);
       const currentFeeAssetId = _currentFeeAssetId.toString();
 
-      const selectedFeeAsset = this.chainService.getAssetBySlug(selectedFeeToken);
-      const assetId = _getTokenOnChainAssetId(selectedFeeAsset);
+      const selectedFeeTokenInfo = this.chainService.getAssetBySlug(selectedFeeTokenSlug);
+      const selectedFeeAssetId = _getTokenOnChainAssetId(selectedFeeTokenInfo);
+      const nativeTokenInfo = this.chainService.getNativeTokenInfo(this.chain());
+      const nativeTokenAssetId = _getTokenOnChainAssetId(nativeTokenInfo);
 
-      if (currentFeeAssetId === assetId) {
+      if (currentFeeAssetId === selectedFeeAssetId || _isNativeToken(selectedFeeTokenInfo)) {
         return;
       }
 
-      const setFeeTx = chainApi.api.tx.multiTransactionPayment.setCurrency(assetId);
+      const setFeeTx = chainApi.api.tx.multiTransactionPayment.setCurrency(selectedFeeAssetId);
       const _txFee = await setFeeTx.paymentInfo(params.request.address);
       const txFee = _txFee.toPrimitive() as unknown as RuntimeDispatchInfo;
+      const spotPrice = await this.tradeRouter?.getBestSpotPrice(selectedFeeAssetId, nativeTokenAssetId);
+
+      if (!spotPrice) {
+        return; // todo: should handle this better, can potentially cause failed transaction in the following steps
+      }
+
+      const convertedFeeAmount = new BigNumber(txFee.partialFee).dividedBy(spotPrice.amount);
 
       const fee: SwapFeeInfo = {
         feeComponent: [{
           feeType: SwapFeeType.NETWORK_FEE,
-          amount: Math.round(txFee.partialFee).toString(),
-          tokenSlug: selectedFeeAsset.slug
+          amount: convertedFeeAmount.shiftedBy(_getAssetDecimals(selectedFeeTokenInfo)).toFixed(0),
+          tokenSlug: selectedFeeTokenInfo.slug
         }],
-        selectedFeeToken: selectedFeeAsset.slug,
-        defaultFeeToken: selectedFeeAsset.slug,
-        feeOptions: [selectedFeeAsset.slug]
+        selectedFeeToken: selectedFeeTokenInfo.slug,
+        defaultFeeToken: selectedFeeTokenInfo.slug,
+        feeOptions: [selectedFeeTokenInfo.slug]
       };
 
       return [
@@ -428,7 +437,7 @@ export class HydradxHandler implements SwapBaseInterface {
     const substrateApi = this.chainService.getSubstrateApi(this.chain());
     const chainApi = await substrateApi.isReady;
 
-    const swapStepIndex = params.process.steps.findIndex((step) => step.type === SwapStepType.SWAP);
+    const swapStepIndex = params.process.steps.findIndex((step) => step.type === SwapStepType.SET_FEE_TOKEN);
 
     if (swapStepIndex <= -1) {
       return Promise.reject(new TransactionError(BasicTxErrorType.INTERNAL_ERROR));
@@ -441,7 +450,8 @@ export class HydradxHandler implements SwapBaseInterface {
     const extrinsic = chainApi.api.tx.multiTransactionPayment.setCurrency(_getTokenOnChainAssetId(selectedFeeAsset));
 
     const txData: RequestChangeFeeToken = {
-      selectedFeeToken: selectedFeeTokenSlug
+      selectedFeeToken: selectedFeeTokenSlug,
+      convertedFeeAmount: swapFeeInfo.feeComponent[0].amount
     };
 
     return {
@@ -486,9 +496,7 @@ export class HydradxHandler implements SwapBaseInterface {
     if (!needSetReferral && !needSetFeeToken) {
       extrinsic = swapTx;
     } else {
-      if (needSetReferral) {
-        txList.push(chainApi.api.tx.referrals.linkCode(this.referralCode));
-      }
+      needSetReferral && txList.push(chainApi.api.tx.referrals.linkCode(this.referralCode));
 
       if (needSetFeeToken) {
         const nativeTokenInfo = this.chainService.getNativeTokenInfo(this.chain());
@@ -499,6 +507,8 @@ export class HydradxHandler implements SwapBaseInterface {
       txList.push(swapTx);
       extrinsic = chainApi.api.tx.utility.batchAll(txList);
     }
+
+    console.log('extrinsic', extrinsic.toHex());
 
     return {
       txChain: fromAsset.originChain,

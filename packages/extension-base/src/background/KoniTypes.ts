@@ -645,6 +645,7 @@ export interface AmountData extends BasicTokenInfo {
 
 export interface FeeData extends AmountData {
   tooHigh?: boolean;
+  feeTokenSlug: string;
 }
 
 export interface AmountDataWithId extends AmountData {
@@ -1597,6 +1598,7 @@ export interface ResponseQrSignEvm {
 export interface RequestChangeFeeToken {
   currentFeeToken?: string;
   selectedFeeToken: string;
+  convertedFeeAmount: string;
 }
 
 /// Transfer

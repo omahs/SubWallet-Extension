@@ -9,7 +9,7 @@ import { TransactionWarning } from '@subwallet/extension-base/background/warning
 import { ALL_ACCOUNT_KEY } from '@subwallet/extension-base/constants';
 import KoniState from '@subwallet/extension-base/koni/background/handlers/State';
 import { ChainService } from '@subwallet/extension-base/services/chain-service';
-import { _getAssetDecimals, _getAssetSymbol, _getChainNativeTokenBasicInfo, _getEvmChainId, _isChainEvmCompatible } from '@subwallet/extension-base/services/chain-service/utils';
+import { _getAssetDecimals, _getAssetSymbol, _getChainNativeTokenBasicInfo, _getChainNativeTokenSlug, _getEvmChainId, _isChainEvmCompatible } from '@subwallet/extension-base/services/chain-service/utils';
 import { EventService } from '@subwallet/extension-base/services/event-service';
 import { calculateGasFeeParams } from '@subwallet/extension-base/services/fee-service/utils';
 import { HistoryService } from '@subwallet/extension-base/services/history-service';
@@ -123,7 +123,8 @@ export default class TransactionService {
       symbol: '',
       decimals: 0,
       value: '',
-      tooHigh: false
+      tooHigh: false,
+      feeTokenSlug: ''
     };
 
     const chainInfo = this.state.chainService.getChainInfoByKey(chain);
@@ -133,6 +134,7 @@ export default class TransactionService {
     } else {
       const { decimals, symbol } = _getChainNativeTokenBasicInfo(chainInfo);
 
+      estimateFee.feeTokenSlug = _getChainNativeTokenSlug(chainInfo);
       estimateFee.decimals = decimals;
       estimateFee.symbol = symbol;
 
