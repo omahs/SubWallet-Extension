@@ -25,8 +25,6 @@ const Component: React.FC<Props> = (props: Props) => {
     return transaction.data as RequestChangeFeeToken;
   }, [transaction.data]);
 
-  console.log(convertedFeeAmount);
-
   const selectedFeeTokenInfo = useMemo(() => {
     return assetRegistryMap[selectedFeeToken];
   }, [assetRegistryMap, selectedFeeToken]);
