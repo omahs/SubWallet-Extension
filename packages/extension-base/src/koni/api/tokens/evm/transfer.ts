@@ -5,11 +5,11 @@ import { _ChainInfo } from '@subwallet/chain-list/types';
 import { ExternalRequestPromise, ExternalRequestPromiseStatus, HandleBasicTx, TransactionResponse } from '@subwallet/extension-base/background/KoniTypes';
 import { getERC20Contract } from '@subwallet/extension-base/koni/api/tokens/evm/web3';
 import { _BALANCE_PARSING_CHAIN_GROUP, EVM_REFORMAT_DECIMALS } from '@subwallet/extension-base/services/chain-service/constants';
-import { _ERC721_ABI } from '@subwallet/extension-base/services/chain-service/helper';
+import { ERC721_ABI } from '@subwallet/extension-base/services/chain-service/helper';
 import { _EvmApi } from '@subwallet/extension-base/services/chain-service/types';
 import { calculateGasFeeParams } from '@subwallet/extension-base/services/fee-service/utils';
 import BigN from 'bignumber.js';
-import { TransactionConfig, TransactionReceipt } from 'web3-core';
+import { Transaction as TransactionConfig, TransactionReceipt } from 'web3-types';
 
 import { hexToBn } from '@polkadot/util';
 
@@ -36,7 +36,7 @@ export const handleTransferBalanceResult = ({ callback,
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     fee = hexToBn(receipt.l1Fee || '0x0').add(hexToBn(receipt.l2BobaFee || '0x0')).toString();
   } else {
-    fee = (receipt.gasUsed * receipt.effectiveGasPrice).toString();
+    fee = (Number(receipt.gasUsed) * Number(receipt.effectiveGasPrice)).toString();
   }
 
   response.txResult = {
@@ -77,9 +77,9 @@ export async function getEVMTransactionObject (
   if (priority.baseGasFee) {
     const maxFee = priority.maxFeePerGas;
 
-    estimateFee = maxFee.multipliedBy(gasLimit);
+    estimateFee = maxFee.multipliedBy(Number(gasLimit));
   } else {
-    estimateFee = new BigN(priority.gasPrice).multipliedBy(gasLimit);
+    estimateFee = new BigN(priority.gasPrice).multipliedBy(Number(gasLimit));
   }
 
   transactionObject.value = transferAll ? new BigN(value).minus(estimateFee).toString() : value;
@@ -109,22 +109,20 @@ export async function getERC20TransactionObject (
   let transferValue = value;
 
   if (transferAll) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-    const bal = await erc20Contract.methods.balanceOf(from).call() as string;
+    const bal = await erc20Contract.methods.balanceOf(from).call();
 
-    freeAmount = new BigN(bal || '0');
+    freeAmount = new BigN(bal.toString() || '0');
     transferValue = freeAmount.toFixed(0) || '0';
   }
 
   function generateTransferData (to: string, transferValue: string): string {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-    return erc20Contract.methods.transfer(to, transferValue).encodeABI() as string;
+    return erc20Contract.methods.transfer(to, transferValue).encodeABI();
   }
 
   const transferData = generateTransferData(to, transferValue);
   const [gasLimit, priority] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-    erc20Contract.methods.transfer(to, transferValue).estimateGas({ from }) as number,
+    erc20Contract.methods.transfer(to, transferValue).estimateGas({ from }),
     calculateGasFeeParams(evmApi, networkKey)
   ]);
 
@@ -154,12 +152,10 @@ export async function getERC721Transaction (
   senderAddress: string,
   recipientAddress: string,
   tokenId: string): Promise<TransactionConfig> {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-  const contract = new web3Api.api.eth.Contract(_ERC721_ABI, contractAddress);
+  const contract = new web3Api.api.eth.Contract(ERC721_ABI, contractAddress);
 
   const [gasLimit, priority] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-    contract.methods.safeTransferFrom(senderAddress, recipientAddress, tokenId).estimateGas({ from: senderAddress }) as number,
+    contract.methods.safeTransferFrom(senderAddress, recipientAddress, tokenId).estimateGas({ from: senderAddress }),
     calculateGasFeeParams(web3Api, chain)
   ]);
 

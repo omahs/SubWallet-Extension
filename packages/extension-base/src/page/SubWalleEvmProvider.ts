@@ -5,9 +5,9 @@ import type { EvmProvider } from '@subwallet/extension-inject/types';
 
 import SafeEventEmitter from '@metamask/safe-event-emitter';
 import { EvmProviderError } from '@subwallet/extension-base/background/errors/EvmProviderError';
+import { RequestArguments } from '@subwallet/extension-base/background/KoniTypes';
 import { SendRequest } from '@subwallet/extension-base/page/types';
 import { JsonRpcRequest, JsonRpcResponse, JsonRpcSuccess } from 'json-rpc-engine';
-import { RequestArguments } from 'web3-core';
 
 export interface SendSyncJsonRpcRequest extends JsonRpcRequest<unknown> {
   method: 'net_version';

@@ -10,17 +10,15 @@ import { _getAssetDecimals, _getContractAddressOfToken } from '@subwallet/extens
 import { calculateGasFeeParams } from '@subwallet/extension-base/services/fee-service/utils';
 import { BaseYieldStepDetail, EarningStatus, HandleYieldStepData, LiquidYieldPoolInfo, OptimalYieldPath, OptimalYieldPathParams, SubmitYieldJoinData, TokenApproveData, TransactionData, UnstakingInfo, UnstakingStatus, YieldPoolMethodInfo, YieldPositionInfo, YieldStepType, YieldTokenBaseInfo } from '@subwallet/extension-base/types';
 import fetch from 'cross-fetch';
-import { TransactionConfig } from 'web3-core';
 import { Contract } from 'web3-eth-contract';
+import { Transaction as TransactionConfig } from 'web3-types';
 
 import { BN, BN_TEN, BN_ZERO } from '@polkadot/util';
 
 import { ST_LIQUID_TOKEN_ABI } from '../../constants';
 import BaseLiquidStakingPoolHandler from './base';
 
-export const getStellaswapLiquidStakingContract = (networkKey: string, assetAddress: string, evmApi: _EvmApi, options = {}): Contract => {
-  // @ts-ignore
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument,@typescript-eslint/no-unsafe-member-access
+export const getStellaswapLiquidStakingContract = (assetAddress: string, evmApi: _EvmApi, options = {}): Contract<typeof ST_LIQUID_TOKEN_ABI> => {
   return new evmApi.api.eth.Contract(ST_LIQUID_TOKEN_ABI, assetAddress, options);
 };
 
@@ -80,7 +78,7 @@ export default class StellaSwapLiquidStakingPoolHandler extends BaseLiquidStakin
     const evmApi = this.evmApi;
     const derivativeTokenSlug = this.derivativeAssets[0];
     const derivativeTokenInfo = this.state.getAssetBySlug(derivativeTokenSlug);
-    const stakingContract = getStellaswapLiquidStakingContract(this.chain, _getContractAddressOfToken(derivativeTokenInfo), evmApi);
+    const stakingContract = getStellaswapLiquidStakingContract(_getContractAddressOfToken(derivativeTokenInfo), evmApi);
 
     const aprPromise = new Promise(function (resolve) {
       fetch(APR_STATS_URL, {
@@ -92,17 +90,12 @@ export default class StellaSwapLiquidStakingPoolHandler extends BaseLiquidStakin
 
     const sampleTokenShare = 10 ** _getAssetDecimals(derivativeTokenInfo);
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
     const tvlCall = stakingContract.methods.fundRaisedBalance();
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
     const exchangeRateCall = stakingContract.methods.getPooledTokenByShares(sampleTokenShare);
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const [aprObject, tvl, equivalentTokenShare] = await Promise.all([
       aprPromise,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
       tvlCall.call(),
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
       exchangeRateCall.call()
     ]);
 
@@ -150,7 +143,7 @@ export default class StellaSwapLiquidStakingPoolHandler extends BaseLiquidStakin
     const evmApi = this.evmApi;
     const derivativeTokenSlug = this.derivativeAssets?.[0] || '';
     const derivativeTokenInfo = this.state.getAssetBySlug(derivativeTokenSlug);
-    const contract = getStellaswapLiquidStakingContract(this.chain, _getContractAddressOfToken(derivativeTokenInfo), evmApi);
+    const contract = getStellaswapLiquidStakingContract(_getContractAddressOfToken(derivativeTokenInfo), evmApi);
 
     const getTokenBalance = () => {
       if (!cancel) {
@@ -162,10 +155,8 @@ export default class StellaSwapLiquidStakingPoolHandler extends BaseLiquidStakin
           const rate = await this.getExchangeRate();
           const exchangeRate = new BN(rate);
           const decimals = BN_TEN.pow(new BN(this.rateDecimals));
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-          const balance = (await contract.methods.balanceOf(address).call()) as string;
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-          const unbondedObject = (await contract.methods.getUnbonded(address).call()) as StellaswapUnbonding;
+          const balance = await contract.methods.balanceOf(address).call();
+          const unbondedObject = (await contract.methods.getUnbonded(address).call()) as unknown as StellaswapUnbonding;
           const unstakings: UnstakingInfo[] = [];
           let unlockBalance = BN_ZERO;
 
@@ -188,7 +179,7 @@ export default class StellaSwapLiquidStakingPoolHandler extends BaseLiquidStakin
             });
           }
 
-          const activeBalance = new BN(balance);
+          const activeBalance = new BN(balance.toString());
           const acviteToTotal = activeBalance.mul(exchangeRate).div(decimals);
           const totalBalance = acviteToTotal.add(unlockBalance);
 
@@ -246,23 +237,21 @@ export default class StellaSwapLiquidStakingPoolHandler extends BaseLiquidStakin
     const allowanceCall = inputTokenContract.methods.allowance(params.address, _getContractAddressOfToken(derivativeTokenInfo));
 
     const [allowance, gasPrice] = await Promise.all([
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-      (await allowanceCall.call()) as string,
+      await allowanceCall.call(),
       evmApi.api.eth.getGasPrice()
     ]);
 
-    if (!allowance || parseInt(allowance) <= 0) {
+    if (!allowance || parseInt(allowance.toString()) <= 0) {
       const step: BaseYieldStepDetail = {
         name: 'Authorize token approval',
         type: YieldStepType.TOKEN_APPROVAL
       };
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-      const estimatedGas = (await allowanceCall.estimateGas()) as number;
+      const estimatedGas = await allowanceCall.estimateGas();
 
       const fee: YieldTokenBaseInfo = {
         slug: this.feeAssets[0],
-        amount: (estimatedGas * parseInt(gasPrice)).toString()
+        amount: (estimatedGas * gasPrice).toString()
       };
 
       return [step, fee];
@@ -278,16 +267,14 @@ export default class StellaSwapLiquidStakingPoolHandler extends BaseLiquidStakin
     const derivativeTokenInfo = this.state.getAssetBySlug(derivativeTokenSlug);
 
     if (new BN(params.amount).gt(BN_ZERO)) {
-      const stakingContract = getStellaswapLiquidStakingContract(this.chain, _getContractAddressOfToken(derivativeTokenInfo), evmApi);
+      const stakingContract = getStellaswapLiquidStakingContract(_getContractAddressOfToken(derivativeTokenInfo), evmApi);
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
       const depositCall = stakingContract.methods.deposit(params.amount);
 
-      let estimatedDepositGas = 0;
+      let estimatedDepositGas = BigInt(0);
 
       try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-        estimatedDepositGas = (await depositCall.estimateGas({ from: params.address })) as number;
+        estimatedDepositGas = await depositCall.estimateGas({ from: params.address });
       } catch (e) {
         console.error(e);
       }
@@ -296,7 +283,7 @@ export default class StellaSwapLiquidStakingPoolHandler extends BaseLiquidStakin
 
       return {
         slug: this.feeAssets[0],
-        amount: (estimatedDepositGas * parseInt(gasPrice)).toString()
+        amount: (estimatedDepositGas * gasPrice).toString()
       };
     } else {
       return {
@@ -319,12 +306,9 @@ export default class StellaSwapLiquidStakingPoolHandler extends BaseLiquidStakin
     const evmApi = this.evmApi;
     const inputTokenContract = getERC20Contract(_getContractAddressOfToken(inputTokenInfo), evmApi);
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
-    const approveCall = inputTokenContract.methods.approve(derivativeTokenContractAddress, MAX_INT); // TODO: need test
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
-    const approveEncodedCall = approveCall.encodeABI() as string;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-    const gasLimit = await approveCall.estimateGas({ from: address }) as number;
+    const approveCall = inputTokenContract.methods.approve(derivativeTokenContractAddress, MAX_INT);
+    const approveEncodedCall = approveCall.encodeABI();
+    const gasLimit = await approveCall.estimateGas({ from: address });
     const priority = await calculateGasFeeParams(evmApi, this.chain);
 
     const transactionObject = {
@@ -357,15 +341,11 @@ export default class StellaSwapLiquidStakingPoolHandler extends BaseLiquidStakin
     const evmApi = this.evmApi;
     const derivativeTokenSlug = this.derivativeAssets[0];
     const derivativeTokenInfo = this.state.getAssetBySlug(derivativeTokenSlug);
-    const stakingContract = getStellaswapLiquidStakingContract(this.chain, _getContractAddressOfToken(derivativeTokenInfo), evmApi);
+    const stakingContract = getStellaswapLiquidStakingContract(_getContractAddressOfToken(derivativeTokenInfo), evmApi);
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
     const depositCall = stakingContract.methods.deposit(amount, SUBWALLET_REFERRAL); // TODO: need test
-
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
-    const depositEncodedCall = depositCall.encodeABI() as string;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-    const gasLimit = await depositCall.estimateGas({ from: address }) as number;
+    const depositEncodedCall = depositCall.encodeABI();
+    const gasLimit = await depositCall.estimateGas({ from: address });
     const priority = await calculateGasFeeParams(evmApi, this.chain);
 
     const transactionObject = {
@@ -401,15 +381,11 @@ export default class StellaSwapLiquidStakingPoolHandler extends BaseLiquidStakin
     const derivativeTokenSlug = this.derivativeAssets[0];
     const derivativeTokenInfo = this.state.getAssetBySlug(derivativeTokenSlug);
 
-    const stakingContract = getStellaswapLiquidStakingContract(this.chain, _getContractAddressOfToken(derivativeTokenInfo), evmApi);
+    const stakingContract = getStellaswapLiquidStakingContract(_getContractAddressOfToken(derivativeTokenInfo), evmApi);
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
     const redeemCall = stakingContract.methods.redeem(amount);
-
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
-    const redeemEncodedCall = redeemCall.encodeABI() as string;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-    const gasLimit = await redeemCall.estimateGas({ from: address }) as number;
+    const redeemEncodedCall = redeemCall.encodeABI();
+    const gasLimit = await redeemCall.estimateGas({ from: address });
     const priority = await calculateGasFeeParams(evmApi, this.chain);
 
     const transaction: TransactionConfig = {
@@ -434,15 +410,10 @@ export default class StellaSwapLiquidStakingPoolHandler extends BaseLiquidStakin
     const derivativeTokenSlug = this.derivativeAssets[0];
     const derivativeTokenInfo = this.state.getAssetBySlug(derivativeTokenSlug);
 
-    const stakingContract = getStellaswapLiquidStakingContract(this.chain, _getContractAddressOfToken(derivativeTokenInfo), evmApi);
-
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
+    const stakingContract = getStellaswapLiquidStakingContract(_getContractAddressOfToken(derivativeTokenInfo), evmApi);
     const withdrawCall = stakingContract.methods.claimUnbonded();
-
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
-    const withdrawEncodedCall = withdrawCall.encodeABI() as string;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-    const gasLimit = await withdrawCall.estimateGas({ from: address }) as number;
+    const withdrawEncodedCall = withdrawCall.encodeABI();
+    const gasLimit = await withdrawCall.estimateGas({ from: address });
     const priority = await calculateGasFeeParams(evmApi, this.chain);
 
     return {

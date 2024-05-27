@@ -99,7 +99,8 @@ export const evmHandleConnectChain = async (chain: string, key: string, provider
 
     clearTimeout(timeout);
 
-    const tempId = await _api.api.eth.getChainId();
+    const _tempId = await _api.api.eth.getChainId();
+    const tempId = Number(_tempId);
 
     if (tempId !== chainId) {
       resolve([api, `Wrong chain id: current - ${chainId}, onChain - ${tempId}`]);

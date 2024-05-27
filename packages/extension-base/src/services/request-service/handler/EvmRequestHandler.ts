@@ -10,14 +10,13 @@ import RequestService from '@subwallet/extension-base/services/request-service';
 import { anyNumberToBN } from '@subwallet/extension-base/utils/eth';
 import { isInternalRequest } from '@subwallet/extension-base/utils/request';
 import keyring from '@subwallet/ui-keyring';
-import BigN from 'bignumber.js';
 import BN from 'bn.js';
-import { toBuffer } from 'ethereumjs-util';
+import { addHexPrefix, toBuffer } from 'ethereumjs-util';
 import { t } from 'i18next';
 import { BehaviorSubject } from 'rxjs';
-import { TransactionConfig } from 'web3-core';
+import { Numbers, Transaction as TransactionConfig } from 'web3-types';
 
-import { bnToHex, hexAddPrefix, logger as createLogger } from '@polkadot/util';
+import { logger as createLogger } from '@polkadot/util';
 import { Logger } from '@polkadot/util/types';
 
 export default class EvmRequestHandler {
@@ -167,23 +166,26 @@ export default class EvmRequestHandler {
   }
 
   configToTransaction (config: TransactionConfig): TypedTransaction {
-    function formatField (input: string | number | undefined | BN): number | string | undefined {
-      if (typeof input === 'string' || typeof input === 'number') {
-        return hexAddPrefix(new BigN(input).toString(16));
-      } else if (typeof input === 'undefined') {
-        return undefined;
+    function formatField (input?: Numbers): string {
+      if (typeof input === 'string') {
+        if (input.startsWith('0x')) {
+          return input;
+        } else {
+          return addHexPrefix(new BN(input).toString(16));
+        }
       }
 
-      return bnToHex(input);
+      return addHexPrefix(input?.toString(16) || '');
     }
 
-    const common = Common.custom({ chainId: config.chainId, defaultHardfork: 'london', networkId: config.chainId }, { eips: [1559] });
+    const chainId = config.chainId ? anyNumberToBN(config.chainId).toNumber() : 1;
+    const common = Common.custom({ chainId: chainId, defaultHardfork: 'london', networkId: chainId }, { eips: [1559] });
 
     if (config.maxFeePerGas) {
       const txData: FeeMarketEIP1559TxData = {
         nonce: formatField(config.nonce),
         gasLimit: formatField(config.gas),
-        to: config.to,
+        to: config.to || '',
         value: formatField(config.value),
         data: toBuffer(config.data),
         maxFeePerGas: formatField(config.maxFeePerGas),
@@ -198,7 +200,7 @@ export default class EvmRequestHandler {
         nonce: formatField(config.nonce),
         gasLimit: formatField(config.gas),
         gasPrice: formatField(config.gasPrice),
-        to: config.to,
+        to: config.to || '',
         value: formatField(config.value),
         data: toBuffer(config.data)
       };

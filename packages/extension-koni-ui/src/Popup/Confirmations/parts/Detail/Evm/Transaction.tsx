@@ -7,6 +7,7 @@ import MetaInfo from '@subwallet/extension-koni-ui/components/MetaInfo/MetaInfo'
 import useGetAccountByAddress from '@subwallet/extension-koni-ui/hooks/account/useGetAccountByAddress';
 import useGetChainInfoByChainId from '@subwallet/extension-koni-ui/hooks/chain/useGetChainInfoByChainId';
 import { ThemeProps } from '@subwallet/extension-koni-ui/types';
+import { convertToBigN } from '@subwallet/extension-koni-ui/utils';
 import BigN from 'bignumber.js';
 import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -17,19 +18,13 @@ interface Props extends ThemeProps {
   account: AccountJson;
 }
 
-const convertToBigN = (num: EvmSendTransactionRequest['value']): string | number | undefined => {
-  if (typeof num === 'object') {
-    return num.toNumber();
-  } else {
-    return num;
-  }
-};
-
 const Component: React.FC<Props> = (props: Props) => {
   const { account, className, request } = props;
-  const { chainId } = request;
+  const { chainId: _chainId } = request;
 
-  const recipient = useGetAccountByAddress(request.to);
+  const chainId = useMemo(() => _chainId === undefined ? undefined : Number(_chainId), [_chainId]);
+
+  const recipient = useGetAccountByAddress(request.to ?? '');
 
   const chainInfo = useGetChainInfoByChainId(chainId);
 

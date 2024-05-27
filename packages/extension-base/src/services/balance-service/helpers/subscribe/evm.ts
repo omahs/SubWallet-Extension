@@ -6,6 +6,7 @@ import { APIItemState } from '@subwallet/extension-base/background/KoniTypes';
 import { ASTAR_REFRESH_BALANCE_INTERVAL, SUB_TOKEN_REFRESH_BALANCE_INTERVAL } from '@subwallet/extension-base/constants';
 import { getEVMBalance } from '@subwallet/extension-base/koni/api/tokens/evm/balance';
 import { getERC20Contract } from '@subwallet/extension-base/koni/api/tokens/evm/web3';
+import { ERC20_ABI } from '@subwallet/extension-base/services/chain-service/helper';
 import { _getContractAddressOfToken } from '@subwallet/extension-base/services/chain-service/utils';
 import { BalanceItem, SubscribeEvmPalletBalance } from '@subwallet/extension-base/types';
 import { filterAssetsByChainAndType } from '@subwallet/extension-base/utils';
@@ -16,7 +17,7 @@ import { BN } from '@polkadot/util';
 export function subscribeERC20Interval ({ addresses, assetMap, callback, chainInfo, evmApi }: SubscribeEvmPalletBalance): () => void {
   const chain = chainInfo.slug;
   const tokenList = filterAssetsByChainAndType(assetMap, chain, [_AssetType.ERC20]);
-  const erc20ContractMap = {} as Record<string, Contract>;
+  const erc20ContractMap = {} as Record<string, Contract<typeof ERC20_ABI>>;
 
   Object.entries(tokenList).forEach(([slug, tokenInfo]) => {
     erc20ContractMap[slug] = getERC20Contract(_getContractAddressOfToken(tokenInfo), evmApi);

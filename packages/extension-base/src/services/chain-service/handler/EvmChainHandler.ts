@@ -6,7 +6,7 @@ import { ChainService } from '@subwallet/extension-base/services/chain-service';
 import { AbstractChainHandler } from '@subwallet/extension-base/services/chain-service/handler/AbstractChainHandler';
 import { EvmApi } from '@subwallet/extension-base/services/chain-service/handler/EvmApi';
 import { _ApiOptions, _EvmChainSpec } from '@subwallet/extension-base/services/chain-service/handler/types';
-import { _ERC20_ABI, _ERC721_ABI } from '@subwallet/extension-base/services/chain-service/helper';
+import { _ERC20_ABI, _ERC721_ABI, ERC20_ABI, ERC721_ABI } from '@subwallet/extension-base/services/chain-service/helper';
 import { _EvmApi, _SmartContractTokenInfo } from '@subwallet/extension-base/services/chain-service/types';
 import BigN from 'bignumber.js';
 import { Contract } from 'web3-eth-contract';
@@ -105,7 +105,7 @@ export class EvmChainHandler extends AbstractChainHandler {
     const chainId = await evmApi.api.eth.getChainId();
     let chainInfoList: Record<string, any>[] | undefined;
     const result: _EvmChainSpec = {
-      evmChainId: chainId,
+      evmChainId: Number(chainId),
       name: '',
       symbol: '',
       decimals: 18, // by default, might change
@@ -122,7 +122,7 @@ export class EvmChainHandler extends AbstractChainHandler {
       chainInfoList.forEach((_chainInfo) => {
         const _chainId = _chainInfo.chainId as number;
 
-        if (chainId === _chainId) {
+        if (Number(chainId) === _chainId) {
           result.name = _chainInfo.name as string;
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           result.symbol = _chainInfo.nativeCurrency.symbol as string;
@@ -134,7 +134,7 @@ export class EvmChainHandler extends AbstractChainHandler {
   }
 
   public async getEvmContractTokenInfo (contractAddress: string, tokenType: _AssetType, originChain: string): Promise<_SmartContractTokenInfo> {
-    let tokenContract: Contract;
+    let tokenContract: Contract<typeof ERC20_ABI> | Contract<typeof ERC721_ABI>;
     let name = '';
     let decimals: number | undefined = -1;
     let symbol = '';
@@ -144,33 +144,26 @@ export class EvmChainHandler extends AbstractChainHandler {
 
     try {
       if (tokenType === _AssetType.ERC721) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument,@typescript-eslint/no-unsafe-member-access
-        tokenContract = new evmApi.api.eth.Contract(_ERC721_ABI, contractAddress);
+        tokenContract = new evmApi.api.eth.Contract(ERC721_ABI, contractAddress);
 
         const [_name, _symbol] = await Promise.all([
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-          tokenContract.methods.name().call() as string,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-          tokenContract.methods.symbol().call() as string
+          tokenContract.methods.name().call(),
+          tokenContract.methods.symbol().call()
         ]);
 
         name = _name;
         symbol = _symbol;
       } else {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument,@typescript-eslint/no-unsafe-member-access
-        tokenContract = new evmApi.api.eth.Contract(_ERC20_ABI, contractAddress);
+        tokenContract = new evmApi.api.eth.Contract(ERC20_ABI, contractAddress);
 
         const [_decimals, _symbol, _name] = await Promise.all([
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-          tokenContract.methods.decimals().call() as number,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-          tokenContract.methods.symbol().call() as string,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-          tokenContract.methods.name().call() as string
+          tokenContract.methods.decimals().call(),
+          tokenContract.methods.symbol().call(),
+          tokenContract.methods.name().call()
         ]);
 
         name = _name;
-        decimals = new BigN(_decimals).toNumber();
+        decimals = new BigN(_decimals.toString()).toNumber();
         symbol = _symbol;
       }
 

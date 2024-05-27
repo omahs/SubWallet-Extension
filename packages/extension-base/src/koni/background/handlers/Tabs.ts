@@ -8,7 +8,7 @@ import { EvmProviderError } from '@subwallet/extension-base/background/errors/Ev
 import { withErrorLog } from '@subwallet/extension-base/background/handlers/helpers';
 import { AuthUrlInfo } from '@subwallet/extension-base/background/handlers/State';
 import { createSubscription, unsubscribe } from '@subwallet/extension-base/background/handlers/subscriptions';
-import { AddNetworkRequestExternal, AddTokenRequestExternal, EvmAppState, EvmEventType, EvmProviderErrorType, EvmSendTransactionParams, PassPhishing, RequestAddPspToken, RequestEvmProviderSend, RequestSettingsType, ValidateNetworkResponse } from '@subwallet/extension-base/background/KoniTypes';
+import { AddNetworkRequestExternal, AddTokenRequestExternal, EvmAppState, EvmEventType, EvmProviderErrorType, EvmSendTransactionParams, PassPhishing, RequestAddPspToken, RequestArguments, RequestEvmProviderSend, RequestSettingsType, ValidateNetworkResponse } from '@subwallet/extension-base/background/KoniTypes';
 import RequestBytesSign from '@subwallet/extension-base/background/RequestBytesSign';
 import RequestExtrinsicSign from '@subwallet/extension-base/background/RequestExtrinsicSign';
 import { AccountAuthType, MessageTypes, RequestAccountList, RequestAccountSubscribe, RequestAccountUnsubscribe, RequestAuthorizeTab, RequestRpcSend, RequestRpcSubscribe, RequestRpcUnsubscribe, RequestTypes, ResponseRpcListProviders, ResponseSigning, ResponseTypes, SubscriptionMessageTypes } from '@subwallet/extension-base/background/types';
@@ -27,9 +27,8 @@ import keyring from '@subwallet/ui-keyring';
 import { SingleAddress, SubjectInfo } from '@subwallet/ui-keyring/observable/types';
 import { t } from 'i18next';
 import { Subscription } from 'rxjs';
-import Web3 from 'web3';
-import { HttpProvider, RequestArguments, WebsocketProvider } from 'web3-core';
-import { JsonRpcPayload } from 'web3-core-helpers';
+import { Web3BaseProvider } from 'web3';
+import { JsonRpcRequest } from 'web3-types';
 
 import { checkIfDenied } from '@polkadot/phishing';
 import { JsonRpcResponse } from '@polkadot/rpc-provider/types';
@@ -400,8 +399,8 @@ export default class KoniTabs {
       const evmApi = this.#koniState.getEvmApi(slug);
       const web3 = evmApi?.api;
 
-      if (web3?.currentProvider instanceof Web3.providers.WebsocketProvider) {
-        if (!web3.currentProvider.connected) {
+      if (web3?.currentProvider?.supportsSubscriptions()) {
+        if (web3.currentProvider?.getStatus() !== 'connected') {
           console.log(`${slug} is disconnected, trying to connect...`);
           this.#koniState.refreshWeb3Api(slug);
           let checkingNum = 0;
@@ -409,7 +408,7 @@ export default class KoniTabs {
           const poll = (resolve: (value: unknown) => void) => {
             checkingNum += 1;
 
-            if ((web3.currentProvider as WebsocketProvider).connected) {
+            if (web3?.currentProvider?.getStatus() === 'connected') {
               console.log(`${slug} is connected.`);
               resolve(true);
             } else {
@@ -451,6 +450,7 @@ export default class KoniTabs {
   }
 
   private async switchEvmChain (id: string, url: string, { params }: RequestArguments) {
+    // @ts-ignore
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const chainId = params[0].chainId as string;
     const chainIdDec = parseInt(chainId, 16);
@@ -772,7 +772,7 @@ export default class KoniTabs {
 
     const eventMap: Record<string, any> = {};
 
-    eventMap.data = ({ method, params }: JsonRpcPayload) => {
+    eventMap.data = ({ method, params }: JsonRpcRequest) => {
       emitEvent('message', {
         type: method,
         data: params
@@ -785,7 +785,7 @@ export default class KoniTabs {
 
     Object.entries(eventMap).forEach(([event, callback]) => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      provider?.on && provider?.on(event, callback);
+      provider?.supportsSubscriptions() && provider?.on(event, callback);
     });
 
     // Add event emitter
@@ -802,7 +802,7 @@ export default class KoniTabs {
 
       Object.entries(eventMap).forEach(([event, callback]) => {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        provider?.removeListener && provider?.removeListener(event, callback);
+        provider?.supportsSubscriptions() && provider?.removeListener(event, callback);
       });
       accountListSubscription.unsubscribe();
       authUrlSubscription.unsubscribe();
@@ -816,8 +816,8 @@ export default class KoniTabs {
     return true;
   }
 
-  private checkAndHandleProviderStatus (provider: WebsocketProvider | HttpProvider | undefined) {
-    if ((!provider || !provider?.connected) && provider?.supportsSubscriptions()) { // excludes HttpProvider
+  private checkAndHandleProviderStatus (provider: Web3BaseProvider | undefined) {
+    if (provider?.supportsSubscriptions() && (!provider || provider.getStatus() !== 'connected')) { // excludes HttpProvider
       Object.values(this.evmEventEmitterMap).forEach((m) => {
         Object.values(m).forEach((emitter) => {
           emitter('disconnect', new EvmProviderError(EvmProviderErrorType.CHAIN_DISCONNECTED));
@@ -827,13 +827,13 @@ export default class KoniTabs {
     }
   }
 
-  private async getEvmProvider (url: string): Promise<WebsocketProvider | undefined> {
+  private async getEvmProvider (url: string): Promise<Web3BaseProvider | undefined> {
     const evmState = await this.getEvmState(url);
-    let provider = evmState.web3?.currentProvider as WebsocketProvider;
+    let provider = evmState.web3?.currentProvider;
 
     if (!provider) {
       await this.getEvmCurrentChainId(url);
-      provider = evmState.web3?.currentProvider as WebsocketProvider;
+      provider = evmState.web3?.currentProvider;
     }
 
     return provider;
@@ -852,11 +852,14 @@ export default class KoniTabs {
         params: params as any[],
         id
       }, (error, result) => {
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const err = result?.error || error;
 
         if (err) {
           reject(err);
         } else {
+          // @ts-ignore
           const rs = result?.result as unknown;
 
           callback && callback(rs);
@@ -962,7 +965,7 @@ export default class KoniTabs {
   private async handleEvmSend (id: string, url: string, port: chrome.runtime.Port, request: RequestEvmProviderSend) {
     const cb = createSubscription<'evm(provider.send)'>(id, port);
     const evmState = await this.getEvmState(url);
-    const provider = evmState.web3?.currentProvider as WebsocketProvider;
+    const provider = evmState.web3?.currentProvider as Web3BaseProvider;
 
     this.checkAndHandleProviderStatus(provider);
 

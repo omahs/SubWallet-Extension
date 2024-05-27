@@ -40,7 +40,7 @@ import WalletConnectService from '@subwallet/extension-base/services/wallet-conn
 import { SWStorage } from '@subwallet/extension-base/storage';
 import AccountRefStore from '@subwallet/extension-base/stores/AccountRef';
 import { BalanceItem, BalanceMap, EvmFeeInfo } from '@subwallet/extension-base/types';
-import { isAccountAll, stripUrl, TARGET_ENV, wait } from '@subwallet/extension-base/utils';
+import { anyNumberToBN, bytesToHex, isAccountAll, stripUrl, TARGET_ENV, wait } from '@subwallet/extension-base/utils';
 import { isContractAddress, parseContractInput } from '@subwallet/extension-base/utils/eth/parseTransaction';
 import { createPromiseHandler } from '@subwallet/extension-base/utils/promise';
 import { MetadataDef, ProviderMeta } from '@subwallet/extension-inject/types';
@@ -52,7 +52,7 @@ import SimpleKeyring from 'eth-simple-keyring';
 import { t } from 'i18next';
 import { interfaces } from 'manta-extension-sdk';
 import { BehaviorSubject, Subject } from 'rxjs';
-import { TransactionConfig } from 'web3-core';
+import { Transaction as TransactionConfig } from 'web3-types';
 
 import { JsonRpcResponse, ProviderInterface, ProviderInterfaceCallback } from '@polkadot/rpc-provider/types';
 import { assert, hexStripPrefix, hexToU8a, isHex, logger as createLogger, u8aToHex } from '@polkadot/util';
@@ -1518,14 +1518,15 @@ export default class KoniState {
     }
 
     let estimateGas: string;
+    const gas = Number(transaction.gas);
 
     // TODO: Review, If not override, transaction maybe fail because fee too low
     if (transactionParams.maxPriorityFeePerGas && transactionParams.maxFeePerGas) {
       const maxFee = new BigN(transactionParams.maxFeePerGas);
 
-      estimateGas = maxFee.multipliedBy(transaction.gas).toFixed(0);
+      estimateGas = maxFee.multipliedBy(gas).toFixed(0);
     } else if (transactionParams.gasPrice) {
-      estimateGas = new BigN(transactionParams.gasPrice).multipliedBy(transaction.gas).toFixed(0);
+      estimateGas = new BigN(transactionParams.gasPrice).multipliedBy(gas).toFixed(0);
     } else {
       const priority = await calculateGasFeeParams(evmApi, networkKey);
 
@@ -1535,15 +1536,15 @@ export default class KoniState {
 
         const maxFee = priority.maxFeePerGas;
 
-        estimateGas = maxFee.multipliedBy(transaction.gas).toFixed(0);
+        estimateGas = maxFee.multipliedBy(gas).toFixed(0);
       } else {
         transaction.gasPrice = priority.gasPrice;
-        estimateGas = new BigN(priority.gasPrice).multipliedBy(transaction.gas).toFixed(0);
+        estimateGas = new BigN(priority.gasPrice).multipliedBy(gas).toFixed(0);
       }
     }
 
     // Address is validated in before step
-    const fromAddress = allowedAccounts.find((account) => (account.toLowerCase() === (transaction.from as string).toLowerCase()));
+    const fromAddress = allowedAccounts.find((account) => (account.toLowerCase() === transaction.from?.toLowerCase()));
 
     if (!fromAddress) {
       throw new EvmProviderError(EvmProviderErrorType.INVALID_PARAMS, t('You have rescinded allowance for this account in wallet'));
@@ -1558,7 +1559,7 @@ export default class KoniState {
     const account: AccountJson = { address: pair.address, ...pair.meta };
 
     // Validate balance
-    const balance = new BN(await web3.eth.getBalance(fromAddress) || 0);
+    const balance = new BN(Number(await web3.eth.getBalance(fromAddress) || BigInt(0)));
 
     if (balance.lt(new BN(estimateGas).add(new BN(autoFormatNumber(transactionParams.value) || '0')))) {
       throw new EvmProviderError(EvmProviderErrorType.INVALID_PARAMS, t('Insufficient balance'));
@@ -1570,9 +1571,9 @@ export default class KoniState {
     const isToContract = await isContractAddress(transaction.to || '', evmApi);
     const parseData = isToContract
       ? transaction.data
-        ? (await parseContractInput(transaction.data, transaction.to || '', evmNetwork)).result
+        ? (await parseContractInput(bytesToHex(transaction.data) || '', transaction.to || '', evmNetwork)).result
         : ''
-      : transaction.data || '';
+      : bytesToHex(transaction.data) || '';
 
     const requestPayload: EvmSendTransactionRequest = {
       ...transaction,
@@ -1586,7 +1587,12 @@ export default class KoniState {
 
     const eType = transaction.value ? ExtrinsicType.TRANSFER_BALANCE : ExtrinsicType.EVM_EXECUTE;
 
-    const transactionData = { ...transaction };
+    const transactionData = {
+      ...transaction,
+      gas: anyNumberToBN(transaction.gas).toNumber(),
+      gasPrice: anyNumberToBN(transaction.gasPrice).toNumber(),
+      nonce: anyNumberToBN(transaction.nonce).toNumber()
+    };
     const token = this.chainService.getNativeTokenInfo(networkKey);
 
     if (eType === ExtrinsicType.TRANSFER_BALANCE) {

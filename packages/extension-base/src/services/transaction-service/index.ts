@@ -22,7 +22,7 @@ import { getExplorerLink, parseTransactionData } from '@subwallet/extension-base
 import { isWalletConnectRequest } from '@subwallet/extension-base/services/wallet-connect-service/helpers';
 import { Web3Transaction } from '@subwallet/extension-base/signers/types';
 import { LeavePoolAdditionalData, RequestStakePoolingBonding, RequestYieldStepSubmit, SpecialYieldPoolInfo, YieldPoolType } from '@subwallet/extension-base/types';
-import { anyNumberToBN, reformatAddress } from '@subwallet/extension-base/utils';
+import { anyNumberToBN, bytesToHex, reformatAddress } from '@subwallet/extension-base/utils';
 import { mergeTransactionAndSignature } from '@subwallet/extension-base/utils/eth/mergeTransactionAndSignature';
 import { isContractAddress, parseContractInput } from '@subwallet/extension-base/utils/eth/parseTransaction';
 import { BN_ZERO } from '@subwallet/extension-base/utils/number';
@@ -33,9 +33,8 @@ import { ethers, TransactionLike } from 'ethers';
 import EventEmitter from 'eventemitter3';
 import { t } from 'i18next';
 import { BehaviorSubject } from 'rxjs';
-import { TransactionConfig, TransactionReceipt } from 'web3-core';
-import { Subscription } from 'web3-core-subscriptions';
-import { BlockHeader } from 'web3-eth';
+import { Web3Subscription } from 'web3-core';
+import { BlockHeaderOutput, Transaction as TransactionConfig, TransactionReceipt } from 'web3-types';
 
 import { SubmittableExtrinsic } from '@polkadot/api/promise/types';
 import { Signer, SignerResult } from '@polkadot/api/types';
@@ -153,9 +152,9 @@ export default class TransactionService {
               if (priority.baseGasFee) {
                 const maxFee = priority.maxFeePerGas; // TODO: Need review
 
-                estimateFee.value = maxFee.multipliedBy(gasLimit).toFixed(0);
+                estimateFee.value = maxFee.multipliedBy(gasLimit.toString()).toFixed(0);
               } else {
-                estimateFee.value = new BigN(priority.gasPrice).multipliedBy(gasLimit).toFixed(0);
+                estimateFee.value = new BigN(priority.gasPrice).multipliedBy(gasLimit.toString()).toFixed(0);
               }
 
               estimateFee.tooHigh = priority.busyNetwork;
@@ -902,27 +901,28 @@ export default class TransactionService {
     let txObject: TransactionLike;
 
     const max = anyNumberToBN(transaction.maxFeePerGas);
+    const nonce = transaction.nonce !== undefined ? parseInt(transaction.nonce.toString()) ?? 0 : 0;
 
     if (max.gt(BN_ZERO)) {
       txObject = {
-        nonce: transaction.nonce ?? 0,
+        nonce,
         maxFeePerGas: addHexPrefix(anyNumberToBN(transaction.maxFeePerGas).toString(16)),
         maxPriorityFeePerGas: addHexPrefix(anyNumberToBN(transaction.maxPriorityFeePerGas).toString(16)),
         gasLimit: addHexPrefix(anyNumberToBN(transaction.gas).toString(16)),
         to: transaction.to,
         value: addHexPrefix(anyNumberToBN(transaction.value).toString(16)),
-        data: transaction.data,
+        data: transaction.data?.toString(),
         chainId: _getEvmChainId(chainInfo),
         type: 2
       };
     } else {
       txObject = {
-        nonce: transaction.nonce ?? 0,
+        nonce,
         gasPrice: addHexPrefix(anyNumberToBN(transaction.gasPrice).toString(16)),
         gasLimit: addHexPrefix(anyNumberToBN(transaction.gas).toString(16)),
         to: transaction.to,
         value: addHexPrefix(anyNumberToBN(transaction.value).toString(16)),
-        data: transaction.data,
+        data: transaction.data?.toString(),
         chainId: _getEvmChainId(chainInfo),
         type: 0
       };
@@ -959,9 +959,9 @@ export default class TransactionService {
       try {
         payload.parseData = isToContract
           ? payload.data
-            ? (await parseContractInput(payload.data || '', payload.to || '', chainInfo)).result
+            ? (await parseContractInput(bytesToHex(payload.data) || '', payload.to || '', chainInfo)).result
             : ''
-          : payload.data || '';
+          : bytesToHex(payload.data) || '';
       } catch (e) {
         console.warn('Unable to parse contract input data');
         payload.parseData = payload.data as string;
@@ -997,16 +997,16 @@ export default class TransactionService {
     const emitter = new EventEmitter<TransactionEventMap>();
 
     const txObject: Web3Transaction = {
-      nonce: payload.nonce ?? 0,
-      from: payload.from as string,
+      nonce: anyNumberToBN(payload.nonce).toNumber() ?? 0,
+      from: payload.from,
       gasPrice: anyNumberToBN(payload.gasPrice).toNumber(),
       maxFeePerGas: anyNumberToBN(payload.maxFeePerGas).toNumber(),
       maxPriorityFeePerGas: anyNumberToBN(payload.maxPriorityFeePerGas).toNumber(),
       gasLimit: anyNumberToBN(payload.gas).toNumber(),
-      to: payload.to,
+      to: payload.to ?? '',
       value: anyNumberToBN(payload.value).toNumber(),
-      data: payload.data,
-      chainId: payload.chainId
+      data: bytesToHex(payload.data),
+      chainId: anyNumberToBN(payload.chainId).toNumber()
     };
 
     const eventData: TransactionEventResponse = {
@@ -1030,7 +1030,7 @@ export default class TransactionService {
             emitter.emit('signed', eventData);
 
             eventData.nonce = txObject.nonce;
-            eventData.startBlock = await web3Api.eth.getBlockNumber() - 3;
+            eventData.startBlock = Number(await web3Api.eth.getBlockNumber()) - 3;
             // Add start info
             emitter.emit('send', eventData); // This event is needed after sending transaction with queue
 
@@ -1041,7 +1041,7 @@ export default class TransactionService {
 
             this.watchTransactionSubscribes[id] = new Promise<void>((resolve, reject) => {
               // eslint-disable-next-line prefer-const
-              let subscribe: Subscription<BlockHeader>;
+              let subscribe: Web3Subscription<{ data: BlockHeaderOutput }>;
 
               const onComplete = () => {
                 subscribe?.unsubscribe?.()?.then(console.debug).catch(console.debug);
@@ -1050,9 +1050,9 @@ export default class TransactionService {
 
               const onSuccess = (rs: TransactionReceipt) => {
                 if (rs) {
-                  eventData.extrinsicHash = rs.transactionHash;
-                  eventData.blockHash = rs.blockHash;
-                  eventData.blockNumber = rs.blockNumber;
+                  eventData.extrinsicHash = bytesToHex(rs.transactionHash);
+                  eventData.blockHash = bytesToHex(rs.blockHash);
+                  eventData.blockNumber = anyNumberToBN(rs.blockNumber).toNumber();
                   emitter.emit('success', eventData);
                   onComplete();
                   resolve();
@@ -1073,7 +1073,9 @@ export default class TransactionService {
                 web3Api.eth.getTransactionReceipt(txHash).then(onSuccess).catch(onError);
               };
 
-              subscribe = web3Api.eth.subscribe('newBlockHeaders', onCheck);
+              web3Api.eth.subscribe('newBlockHeaders', onCheck).then((value) => {
+                subscribe = value;
+              }).catch(console.error);
             });
           } else {
             this.removeTransaction(id);
@@ -1122,7 +1124,7 @@ export default class TransactionService {
 
             // Add start info
             eventData.nonce = txObject.nonce;
-            eventData.startBlock = await web3Api.eth.getBlockNumber();
+            eventData.startBlock = Number((await web3Api.eth.getBlockNumber()));
             emitter.emit('send', eventData); // This event is needed after sending transaction with queue
             signedTransaction && web3Api.eth.sendSignedTransaction(signedTransaction)
               .once('transactionHash', (hash) => {
@@ -1132,16 +1134,17 @@ export default class TransactionService {
               .once('receipt', (rs) => {
                 eventData.extrinsicHash = rs.transactionHash;
                 eventData.blockHash = rs.blockHash;
-                eventData.blockNumber = rs.blockNumber;
+                eventData.blockNumber = Number(rs.blockNumber);
                 emitter.emit('success', eventData);
               })
               .once('error', (e) => {
                 eventData.errors.push(new TransactionError(BasicTxErrorType.SEND_TRANSACTION_FAILED, t(e.message)));
                 emitter.emit('error', eventData);
               })
-              .catch((e: Error) => {
-                eventData.errors.push(new TransactionError(BasicTxErrorType.UNABLE_TO_SEND, t(e.message)));
-                emitter.emit('error', eventData);
+              .catch((e) => {
+                const error = e as Error;
+
+                eventData.errors.push(new TransactionError(BasicTxErrorType.UNABLE_TO_SEND, t(error.message)));
               });
           } else {
             this.removeTransaction(id);

@@ -17,3 +17,5 @@ export const _PINK_PSP34_ABI: Record<string, any> = require('./pink_psp34_abi.js
 export const _NEUROGUNS_PSP34_ABI: Record<string, any> = require('./neuroguns_psp34_abi.json');
 // eslint-disable-next-line @typescript-eslint/no-var-requires,@typescript-eslint/no-unsafe-assignment
 export const _AZERO_DOMAIN_REGISTRY_ABI: Record<string, any> = require('./azero_domain_registry_abi.json');
+
+export * from './erc';

@@ -6,7 +6,7 @@ import { _EvmApi } from '@subwallet/extension-base/services/chain-service/types'
 export async function getEVMBalance (networkKey: string, addresses: string[], web3Api: _EvmApi): Promise<string[]> {
   return await Promise.all(addresses.map(async (address) => {
     try {
-      return await web3Api.api.eth.getBalance(address);
+      return (await web3Api.api.eth.getBalance(address)).toString();
     } catch (e) {
       return '0';
     }

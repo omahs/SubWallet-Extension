@@ -56,7 +56,11 @@ const handleSignature = async (type: EvmSignatureSupportType, id: string, signat
 const Component: React.FC<Props> = (props: Props) => {
   const { className, extrinsicType, id, payload, txExpirationTime, type } = props;
   const { payload: { account, canSign, hashPayload } } = payload;
-  const chainId = (payload.payload as EvmSendTransactionRequest)?.chainId || 1;
+  const chainId = useMemo(() => {
+    const _chainId = (payload.payload as EvmSendTransactionRequest)?.chainId || 1;
+
+    return Number(_chainId);
+  }, [payload.payload]);
 
   const { t } = useTranslation();
   const notify = useNotification();

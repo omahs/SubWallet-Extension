@@ -18,9 +18,8 @@ import { KeyringOptions } from '@subwallet/ui-keyring/options/types';
 import { KeyringAddress, KeyringPairs$Json } from '@subwallet/ui-keyring/types';
 import { SessionTypes } from '@walletconnect/types/dist/types/sign-client/session';
 import { DexieExportJsonStructure } from 'dexie-export-import';
-import Web3 from 'web3';
-import { RequestArguments, TransactionConfig } from 'web3-core';
-import { JsonRpcPayload, JsonRpcResponse } from 'web3-core-helpers';
+import { Web3 } from 'web3';
+import { JsonRpcPayload, JsonRpcResponse, Transaction as TransactionConfig, Web3APIRequest } from 'web3-types';
 
 import { SignerResult } from '@polkadot/types/types/extrinsic';
 import { HexString } from '@polkadot/util/types';
@@ -1305,6 +1304,7 @@ export interface EvmAppState {
 }
 
 export type RequestEvmProviderSend = JsonRpcPayload;
+export type RequestArguments = Web3APIRequest<unknown, string>;
 
 export interface ResponseEvmProviderSend {
   error: (Error | null);

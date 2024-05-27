@@ -108,7 +108,7 @@ export const calculateGasFeeParams = async (web3: _EvmApi, networkKey: string, u
   if (useOnline) {
     try {
       const chainId = await web3.api.eth.getChainId();
-      const onlineData = await fetchOnlineFeeData(chainId, networkKey, useInfura);
+      const onlineData = await fetchOnlineFeeData(Number(chainId), networkKey, useInfura);
 
       if (onlineData) {
         return onlineData;
@@ -128,14 +128,13 @@ export const calculateGasFeeParams = async (web3: _EvmApi, networkKey: string, u
 
     const history = await web3.api.eth.getFeeHistory(numBlock, 'latest', rewardPercent);
 
-    const baseGasFee = new BigN(history.baseFeePerGas[history.baseFeePerGas.length - 1]); // Last element is latest
+    const baseGasFee = new BigN(Number(history.baseFeePerGas));
 
-    const blocksBusy = history.reward.reduce((previous: number, rewards, currentIndex) => {
+    const blocksBusy = history.reward.reduce((previous: number, rewards) => {
       const [firstPriority] = rewards;
-      const base = history.baseFeePerGas[currentIndex];
 
-      const priorityBN = new BigN(firstPriority);
-      const baseBN = new BigN(base);
+      const priorityBN = new BigN(Number(firstPriority));
+      const baseBN = new BigN(baseGasFee);
 
       /*
       * True if priority >= 0.3 * base
@@ -157,7 +156,7 @@ export const calculateGasFeeParams = async (web3: _EvmApi, networkKey: string, u
       for (let i = 0; i < rewards.length; i++) {
         firstIndex = i;
         const current = rewards[i];
-        const currentBN = new BigN(current);
+        const currentBN = new BigN(Number(current));
 
         if (currentBN.gt(BN_ZERO)) {
           firstBN = currentBN;
@@ -171,7 +170,7 @@ export const calculateGasFeeParams = async (web3: _EvmApi, networkKey: string, u
       /* Get second priority which greater than first priority */
       for (let i = firstIndex; i < rewards.length; i++) {
         const current = rewards[i];
-        const currentBN = new BigN(current);
+        const currentBN = new BigN(Number(current));
 
         if (currentBN.gt(firstBN)) {
           secondBN = currentBN;
@@ -205,7 +204,7 @@ export const calculateGasFeeParams = async (web3: _EvmApi, networkKey: string, u
 
     if (maxPriorityFeePerGas.eq(BN_ZERO)) {
       const _price = await web3.api.eth.getGasPrice();
-      const gasPrice = recalculateGasPrice(_price, networkKey);
+      const gasPrice = recalculateGasPrice(_price.toString(), networkKey);
 
       return {
         gasPrice,
@@ -228,7 +227,7 @@ export const calculateGasFeeParams = async (web3: _EvmApi, networkKey: string, u
     };
   } catch (e) {
     const _price = await web3.api.eth.getGasPrice();
-    const gasPrice = recalculateGasPrice(_price, networkKey);
+    const gasPrice = recalculateGasPrice(_price.toString(), networkKey);
 
     return {
       gasPrice,

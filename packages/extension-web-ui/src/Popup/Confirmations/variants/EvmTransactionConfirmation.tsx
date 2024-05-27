@@ -5,6 +5,7 @@ import { ConfirmationsQueueItem, EvmSendTransactionRequest } from '@subwallet/ex
 import { ConfirmationGeneralInfo, MetaInfo, ViewDetailIcon } from '@subwallet/extension-web-ui/components';
 import { useGetAccountByAddress, useGetChainInfoByChainId, useOpenDetailModal } from '@subwallet/extension-web-ui/hooks';
 import { EvmSignatureSupportType, ThemeProps } from '@subwallet/extension-web-ui/types';
+import { convertToBigN } from '@subwallet/extension-web-ui/utils';
 import { Button } from '@subwallet/react-ui';
 import BigN from 'bignumber.js';
 import CN from 'classnames';
@@ -19,19 +20,12 @@ interface Props extends ThemeProps {
   request: ConfirmationsQueueItem<EvmSendTransactionRequest>
 }
 
-const convertToBigN = (num: EvmSendTransactionRequest['value']): string | number | undefined => {
-  if (typeof num === 'object') {
-    return num.toNumber();
-  } else {
-    return num;
-  }
-};
-
 function Component ({ className, request, type }: Props) {
-  const { id, payload: { account, chainId, to } } = request;
+  const { id, payload: { account, chainId: _chainId, to } } = request;
   const { t } = useTranslation();
+  const chainId = useMemo(() => _chainId === undefined ? undefined : Number(_chainId), [_chainId]);
   const chainInfo = useGetChainInfoByChainId(chainId);
-  const recipientAddress = to;
+  const recipientAddress = to || '';
   const recipient = useGetAccountByAddress(recipientAddress);
   const onClickDetail = useOpenDetailModal();
 

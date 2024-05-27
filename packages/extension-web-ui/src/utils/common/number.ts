@@ -1,7 +1,7 @@
 // Copyright 2019-2022 @subwallet/extension-web-ui authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { AmountData } from '@subwallet/extension-base/background/KoniTypes';
+import { AmountData, EvmSendTransactionRequest } from '@subwallet/extension-base/background/KoniTypes';
 import { balanceFormatter, formatNumber } from '@subwallet/react-ui';
 import BigN from 'bignumber.js';
 
@@ -18,4 +18,14 @@ export const formatAmount = (amountData?: AmountData): string => {
   const displayValue = formatBalance(value, decimals);
 
   return `${displayValue} ${symbol}`;
+};
+
+export const convertToBigN = (num: EvmSendTransactionRequest['value']): string | number | undefined => {
+  if (typeof num === 'string') {
+    return new BigN(num).toNumber();
+  } else if (typeof num === 'undefined') {
+    return num;
+  } else {
+    return Number(num);
+  }
 };

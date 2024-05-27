@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Common } from '@ethereumjs/common';
-import { LegacyTransaction } from '@ethereumjs/tx';
+import { LegacyTransaction, LegacyTxData } from '@ethereumjs/tx';
 import { _AssetRef, _AssetType, _ChainAsset, _ChainInfo, _MultiChainAsset } from '@subwallet/chain-list/types';
 import { TransactionError } from '@subwallet/extension-base/background/errors/TransactionError';
 import { isJsonPayload, SEED_DEFAULT_LENGTH, SEED_LENGTHS } from '@subwallet/extension-base/background/handlers/Extension';
@@ -54,11 +54,11 @@ import { SessionTypes } from '@walletconnect/types/dist/types/sign-client/sessio
 import { getSdkError } from '@walletconnect/utils';
 import BigN from 'bignumber.js';
 import { t } from 'i18next';
-import { TransactionConfig } from 'web3-core';
+import { Transaction as TransactionConfig } from 'web3-types';
 
 import { SubmittableExtrinsic } from '@polkadot/api/types';
 import { TypeRegistry } from '@polkadot/types';
-import { assert, BN, hexStripPrefix, hexToU8a, isAscii, isHex, u8aToHex, u8aToString } from '@polkadot/util';
+import { assert, BN, hexStripPrefix, hexToU8a, isAscii, isHex, nToHex, u8aToHex, u8aToString } from '@polkadot/util';
 import { addressToEvm, base64Decode, decodeAddress, isAddress, isEthereumAddress, jsonDecrypt, keyExtractSuri, mnemonicGenerate, mnemonicValidate } from '@polkadot/util-crypto';
 import { EncryptedJson, KeypairType, Prefix } from '@polkadot/util-crypto/types';
 
@@ -2104,9 +2104,9 @@ export default class KoniExtension {
             if (priority.baseGasFee) {
               const maxFee = priority.maxFeePerGas;
 
-              estimatedFee = maxFee.multipliedBy(gasLimit).toFixed(0);
+              estimatedFee = maxFee.multipliedBy(Number(gasLimit)).toFixed(0);
             } else {
-              estimatedFee = new BigN(priority.gasPrice).multipliedBy(gasLimit).toFixed(0);
+              estimatedFee = new BigN(priority.gasPrice).multipliedBy(Number(gasLimit)).toFixed(0);
             }
           } else {
             const [mockTx] = await createTransferExtrinsic({
@@ -2648,13 +2648,13 @@ export default class KoniExtension {
         throw new Error(t('Failed to decode data. Please use a valid QR code'));
       }
 
-      const txObject: TransactionConfig = {
+      const txObject: LegacyTxData = {
         gasPrice: new BigN(tx.gasPrice).toNumber(),
         to: tx.to,
         value: new BigN(tx.value).toNumber(),
         data: tx.data,
         nonce: new BigN(tx.nonce).toNumber(),
-        gas: new BigN(tx.gas).toNumber()
+        gasLimit: new BigN(tx.gas).toNumber()
       };
 
       const common = Common.custom({
@@ -2666,12 +2666,12 @@ export default class KoniExtension {
       // @ts-ignore
       const transaction = new LegacyTransaction(txObject, { common });
 
-      const signedTranaction = LegacyTransaction.fromSerializedTx(hexToU8a(pair.evmSigner.signTransaction(transaction)));
+      const signedTransaction = LegacyTransaction.fromSerializedTx(hexToU8a(pair.evmSigner.signTransaction(transaction)));
 
       signed = signatureToHex({
-        r: signedTranaction.r?.toString(16) || '',
-        s: signedTranaction.s?.toString(16) || '',
-        v: signedTranaction.v?.toString(16) || ''
+        r: nToHex(signedTransaction.r),
+        s: nToHex(signedTransaction.s),
+        v: nToHex(signedTransaction.v)
       });
     }
 

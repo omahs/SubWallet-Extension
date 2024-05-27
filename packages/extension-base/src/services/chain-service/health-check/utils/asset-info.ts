@@ -322,7 +322,7 @@ export const getEvmNativeInfo = async (api: _EvmApi): Promise<AssetSpec> => {
           return res.json();
         })
         .then((json: EvmChainInfo[]) => {
-          const rs = json.find((i) => i.chainId === chainId);
+          const rs = json.find((i) => i.chainId === Number(chainId));
 
           resolve(rs);
         })
@@ -350,16 +350,13 @@ export const getErc20AssetInfo = async (asset: _ChainAsset, api: _EvmApi): Promi
   const tokenContract = getERC20Contract(contractAddress, api);
 
   const [_decimals, _symbol, _name] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-    tokenContract.methods.decimals().call() as number,
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-    tokenContract.methods.symbol().call() as string,
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-    tokenContract.methods.name().call() as string
+    tokenContract.methods.decimals().call(),
+    tokenContract.methods.symbol().call(),
+    tokenContract.methods.name().call()
   ]);
 
   const name = _name;
-  const decimals = new BigN(_decimals).toNumber();
+  const decimals = Number(_decimals);
   const symbol = _symbol;
 
   if (!name || !symbol || typeof name === 'object' || typeof symbol === 'object') {
